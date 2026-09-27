@@ -583,6 +583,12 @@ body:not(.peran-OWNER) .tabs-atas{display:none}
 .ik-riwayat{position:relative;font-size:15px;width:34px}
 .ik-riwayat .n{position:absolute;top:-4px;right:-6px;background:#efebe3;color:var(--abu);font-size:10px;font-weight:700;border-radius:8px;padding:0 5px;line-height:15px;border:1px solid var(--kartu)}
 .ik-riwayat.on{background:#ebe6dd;color:var(--tinta)}
+.plusbar{display:flex;align-items:center;gap:10px;background:var(--kartu);border:1px dashed #cfc5b5;border-radius:10px;padding:12px 14px;margin-bottom:12px;color:var(--abu);font-size:14px;cursor:pointer}
+.plusbar:hover{border-color:#b9ab98;color:var(--tinta)}
+.plusbar b{font-size:20px;color:var(--tinta);line-height:1;font-weight:500}
+.plusbar .plus-x{padding:0 4px;color:var(--abu-2)}
+.plusbar .plus-x:hover{color:var(--tinta)}
+.riwayat-fikri{margin-top:0}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -1496,15 +1502,22 @@ function ikonRiwayat() {
   return '<button type="button" class="ik tampil ik-riwayat' + (S.riwayatBuka ? ' on' : '') + '" data-riwayat title="Riwayat yang sudah ditulis">🕘<span class="n">' + (S.nRiwayat || 0) + '</span></button>';
 }
 function renderRiwayatFikri(list, lokal) {
+  var lok = {}; (lokal || []).forEach(function (x) { lok[x.id || x.lokalId] = x; });
+  // kartu kosong (form yang belum sempat diisi barang) tidak perlu masuk riwayat
+  list = list.filter(function (b) {
+    var d = (S.detail && S.detail[b.id]) || lok[b.id];
+    return d ? (d.items || []).length > 0 : Number(b.baris) > 0;
+  });
   S.nRiwayat = list.length;
   $$('.ik-riwayat .n').forEach(function (n) { n.textContent = list.length; });
   $$('.ik-riwayat').forEach(function (x) { x.classList.toggle('on', !!S.riwayatBuka); });
   var el = $('#riwayat-fikri'); if (!el) return;
-  el.hidden = !S.riwayatBuka;
+  // riwayat menggantikan form: form disembunyikan, diganti satu baris "＋ Penerimaan baru"
+  el.hidden = !S.riwayatBuka; $('#editor').hidden = !!S.riwayatBuka;
   if (!S.riwayatBuka) { el.innerHTML = ''; return; }
-  var lok = {}; (lokal || []).forEach(function (x) { lok[x.id || x.lokalId] = x; });
   var aktif = S.batch && (S.batch.id || S.batch.lokalId);
-  el.innerHTML = list.length ? list.map(function (b) {
+  el.innerHTML = '<div class="plusbar" id="plus-baru" role="button" tabindex="0"><b>＋</b> Penerimaan baru<span class="grow"></span><span class="muted small">🕘 ' + list.length + '</span><span class="plus-x" title="Tutup riwayat">✕</span></div>' +
+    (list.length ? list.map(function (b) {
     var d = (S.detail && S.detail[b.id]) || lok[b.id];
     if (aktif === b.id && S.batch) d = S.batch;
     var isi = d ? (d.items || []).map(function (it) {
@@ -1515,10 +1528,19 @@ function renderRiwayatFikri(list, lokal) {
     return '<div class="kk kk-f s-' + b.status + (aktif === b.id ? ' aktif' : '') + '" data-id="' + esc(b.id) + '"><div class="kk-judul">' + esc(b.pemasok || '(tanpa nama)') + '</div>' + isi +
       '<div class="kk-kaki"><span class="muted small grow">' + (b.status === 'DRAFT' ? '<span class="kk-diisi">✏ masih diisi</span> ' : '') + (nK ? '✎ ' + nK + ' dibetulkan Hani' : '') + '</span>' +
       (b.status === 'DISETUJUI' ? '<span class="beres-tag">✓ beres</span>' : '') + '</div></div>';
-  }).join('') : '<div class="kosong small">Belum ada yang ditulis.</div>';
+  }).join('') : '<div class="kosong small">Belum ada yang ditulis.</div>');
   $$('.kk-f', el).forEach(function (k) {
-    k.onclick = function () { pilihBatch(k.dataset.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    k.onclick = function () { S.riwayatBuka = false; pilihBatch(k.dataset.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   });
+  var pb = $('#plus-baru');
+  pb.onclick = function (e) {
+    S.riwayatBuka = false;
+    var b = S.batch, kosong = !b || (!b.items.length && !b.id);   // form yang belum ada barangnya: kembali ke form itu
+    if (e.target.classList.contains('plus-x') || kosong) { renderDaftar(); if (b && bisaUbah()) setTimeout(function () { var i = $('#p-id'); if (i && !i.closest('[hidden]')) i.focus(); else if ($('#in-nama')) $('#in-nama').focus(); }, 30); }
+    else bukaBatch(batchKosong());
+    window.scrollTo({ top: 0 });
+  };
+  pb.onkeydown = function (e) { if (e.key === 'Enter') pb.onclick(e); };
 }
 document.addEventListener('click', function (e) {
   var t = e.target.closest && e.target.closest('[data-riwayat]'); if (!t) return;
@@ -1598,7 +1620,7 @@ function bukaBatch(b) {
   S.infoSimpan = '';
   if (b.items && b.items.length && bolehUbah(b.status)) urutkanItems(b.items);   // draft lama ikut dirapikan urutannya
   S.pmRingkas = !!String(b.pemasok && b.pemasok.identitas || '').trim();
-  S.batch = b; S.edit = entryKosong(); S.editIndex = -1; S.tabBuka = null; $('#editor').hidden = false;
+  S.batch = b; S.edit = entryKosong(); S.editIndex = -1; S.tabBuka = null; $('#editor').hidden = false; S.riwayatBuka = false;
   renderEditor(); renderDaftar();
   if (bisaUbah()) setTimeout(function () { (b.pemasok.identitas ? $('#in-nama') : $('#p-id')).focus(); }, 30);
 }

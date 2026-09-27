@@ -838,12 +838,19 @@ function rangkaiNama(it) {
 }
 
 /** Rangkai Nama Pemasok dengan format yang sudah dipakai di TNB */
+/** Akun pembeli kita di marketplace (Hani transfer ke mereka, mereka yang beli) — ditulis tanpa awalan SP / TC / TP */
+var AKUN_PEMBELI = ['ERIK', 'YUSWAN FARIQ HIDAYAT', 'MUHAMAD SAEPUL FIKRI', 'RAFI FIRDAUS', 'SRI FAUZIAH', 'AGDA PURNAMA', 'JENI NURJAMAN', 'ANI NURAINI'];
+/** 'akun' kalau nama itu akun pembeli kita, selain itu 'toko' (diberi awalan SP / TC / TP) */
+function jenisPihak(pihak) {
+  var v = String(pihak || '').replace(/\s+/g, ' ').trim().toUpperCase();
+  return AKUN_PEMBELI.indexOf(v) >= 0 ? 'akun' : 'toko';
+}
 function rangkaiPemasok(p) {
   var j = ATURAN.JENIS[p.jenis] || ATURAN.JENIS.DIRECT;
   var id = String(p.identitas || '').replace(/\s+/g, ' ').trim().toUpperCase();      // selalu huruf besar
   var pihak = String(p.pihak || '').replace(/\s+/g, ' ').trim().toUpperCase();
   var cat = String(p.catatan || '').replace(/\s+/g, ' ').trim();
-  if (pihak && j.prefix && p.pihakJenis === 'toko' && pihak.toUpperCase().indexOf(j.prefix + ' ') !== 0) {
+  if (pihak && j.prefix && jenisPihak(pihak) === 'toko' && pihak.toUpperCase().indexOf(j.prefix + ' ') !== 0) {
     pihak = j.prefix + ' ' + pihak;
   }
   var bag = [id];
@@ -1555,7 +1562,7 @@ function renderEditor() {
       '<div class="pemasok' + (mp ? '' : ' satu') + '" style="margin-top:12px">' +
       '<div><label class="l">No. pesanan / Nama rekening <span class="sumber-tag ' + p.jenis + '" id="pv-sumber"' + (p.identitas ? '' : ' hidden') + '>' + esc(sumberBarang(p.jenis)) + '</span></label><input class="f" id="p-id" value="' + esc(p.identitas) + '" list="dl-rekening" placeholder="contoh: 260922NQN8JUKH atau Ahmad Muhazir" autocomplete="off"></div>' +
       '<div id="pihak-sel"' + (mp ? '' : ' hidden') + '><label class="l"><span id="l-pihak">' + (mp ? 'Toko / akun pembeli' : 'Nama kontak') + '</span> <span class="biasa-tag" id="pv-biasa" hidden></span></label><input class="f" id="p-pihak" list="dl-pihak" value="' + esc(mp ? p.pihak : pisahDfod(p.pihak).k) + '" placeholder="' + (mp ? 'contoh: Hanacell atau Erik' : 'contoh: NICO') + '">' +
-        '<div class="row small" id="pj-box" style="margin-top:4px;gap:12px"' + (mp ? '' : ' hidden') + '><label><input type="radio" name="pj" value="toko"' + (p.pihakJenis !== 'akun' ? ' checked' : '') + '> Nama toko (+<span id="pj-prefix">' + esc(j.prefix) + '</span>)</label><label><input type="radio" name="pj" value="akun"' + (p.pihakJenis === 'akun' ? ' checked' : '') + '> Akun pembeli kita</label></div></div>' +
+        '<div class="small muted" id="pj-info" style="margin-top:4px"></div></div>' +
       '</div>' +
       '<div class="cat-baris"><span id="kontak-t"></span><span id="dfod-t"></span><span id="cat-lihat"></span><input class="f" id="p-cat" value="' + esc(p.catatan) + '" placeholder="catatan, contoh: RFND SBGN" hidden></div>' +
       '<div id="pv-warn" class="small" style="margin-top:6px"></div>' +
@@ -1615,7 +1622,7 @@ function isiRingkas(b, ubah) {
   // Hani: bilah ala catatan Keep — cukup ← kembali, lalu ✎ ⋯ di kanan (judul ada di dalam catatan)
   if (owner()) return '<button class="ik tampil kp-kembali" data-tutup-lihat title="Kembali ke kartu">←</button><span class="grow"></span>' +
     (ubah ? '<span class="simpan-info" id="simpan-info">' + esc(S.infoSimpan || '') + '</span><button class="ik tampil" id="pm-ubah" title="Ubah pemasok">' + IKON_PENA + '</button>' : '') + menuTitik(b, ubah);
-  if (mp && p.pihak) ket.push(p.pihakJenis === 'akun' ? 'akun pembeli' : 'toko');
+  if (mp && p.pihak) ket.push(jenisPihak(p.pihak) === 'akun' ? 'akun pembeli kita' : 'toko');
   if (!ubah && b.dibuatOleh) ket.push('diinput ' + b.dibuatOleh);
   return '<span class="sumber-tag ' + p.jenis + '">' + esc(sumberBarang(p.jenis)) + '</span>' +
     '<h2 id="ed-judul">' + esc(rangkaiPemasok(p) || '(tanpa nama)') + '</h2>' +
@@ -1676,7 +1683,7 @@ function pasangPemasok() {
   var segarKontak = function () {
     var el = $('#p-pihak'), sel = $('#pihak-sel'), t = $('#kontak-t'), mp = p.jenis !== 'DIRECT'; if (!el || !t) return;
     $('.pemasok').classList.toggle('satu', !mp); sel.hidden = mp ? false : true;
-    if (mp) { if (el.parentNode !== sel) sel.insertBefore(el, $('#pj-box')); el.hidden = false; el.classList.remove('kecil'); t.innerHTML = ''; return; }
+    if (mp) { if (el.parentNode !== sel) sel.insertBefore(el, $('#pj-info')); el.hidden = false; el.classList.remove('kecil'); t.innerHTML = ''; return; }
     if (el.parentNode !== t.parentNode) t.parentNode.insertBefore(el, t.nextSibling);
     el.classList.add('kecil');
     if (document.activeElement === el) { t.innerHTML = ''; return; }
@@ -1707,7 +1714,7 @@ function pasangPemasok() {
     if (!$('#p-id')) return;
     // no. pesanan / nama rekening & nama kontak selalu HURUF BESAR; catatan dibiarkan apa adanya
     p.identitas = $('#p-id').value.toUpperCase(); p.pihak = deteksiJenis(p.identitas = $('#p-id').value.toUpperCase()) === 'DIRECT' ? gabungDfod($('#p-pihak').value.toUpperCase(), dfod) : $('#p-pihak').value.toUpperCase(); p.catatan = $('#p-cat').value;
-    var r = $('input[name=pj]:checked'); if (r) p.pihakJenis = r.value;
+    p.pihakJenis = jenisPihak(p.pihak);   // otomatis: akun pembeli kita → tanpa SP/TC/TP
     p.jenis = deteksiJenis(p.identitas);
   };
   var segar = function () {
@@ -1719,7 +1726,7 @@ function pasangPemasok() {
     segarDfod(); segarKontak();
     segarCatatan();
     $('#p-pihak').placeholder = mp ? 'contoh: Hanacell atau Erik' : 'contoh: NICO';
-    $('#pj-box').hidden = !mp; $('#pj-prefix').textContent = j.prefix;
+    var pi = $('#pj-info'); pi.hidden = !mp || !String(p.pihak || '').trim(); pi.textContent = jenisPihak(p.pihak) === 'akun' ? 'Akun pembeli kita — ditulis tanpa ' + j.prefix : 'Nama toko — ditulis ' + j.prefix + ' ' + String(p.pihak || '').toUpperCase();
     var w = identitasJanggal(p.identitas) ? 'Nomor ini tidak cocok dengan pola Shopee / Tokopedia / TOCO — cek lagi' : '';
     $('#pv-warn').innerHTML = w ? '<span class="hint warn">' + esc(w) + '</span>' : '';
     tandaiUbah();
@@ -1740,7 +1747,7 @@ function pasangPemasok() {
       if (bag[1] !== undefined) {
         var ph = bag[1], cocokPref = pref && new RegExp('^' + pref + '\\s+', 'i').test(ph);
         if (pref) {
-          var r = $('input[name=pj][value=' + (cocokPref ? 'toko' : 'akun') + ']'); if (r) r.checked = true;
+          /* jenis toko / akun ditentukan otomatis dari daftar akun pembeli */
           if (cocokPref) ph = ph.replace(new RegExp('^' + pref + '\\s+', 'i'), '');
         }
         if (jenis === 'DIRECT') { var pd = pisahDfod(ph); ph = pd.k; dfod = pd.d; auto = false; sentuh = true; }
@@ -1755,7 +1762,7 @@ function pasangPemasok() {
   };
   $('#p-pihak').oninput = function () { auto = false; sentuh = true; segar(); };
   $('#p-cat').oninput = segar;
-  $$('input[name=pj]').forEach(function (r) { r.onchange = segar; });
+  
   // nama rekening dirapikan ke bentuk yang sudah ada: "Agung Prasetyo" → "AGUNG PRASETYO", "DEWI TRI W" → "DEWI TRI WIDIAWATI"
   $('#p-id').onchange = function () {
     var v = $('#p-id').value.replace(/\s+/g, ' ').trim(), up = v.toUpperCase(), pm = S.boot.pemasok || {};

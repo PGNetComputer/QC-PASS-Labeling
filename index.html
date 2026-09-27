@@ -472,7 +472,7 @@ main{padding-top:6px}
 .baris-tambah{display:flex;align-items:flex-start;padding:4px 16px 6px 0;border-top:1px solid #efebe3;cursor:text}
 .baris-tambah:hover{background:#fbf9f5}
 .plus-tambah{flex:none;width:46px;text-align:center;font-size:19px;line-height:1;color:var(--abu-2);padding-top:10px;user-select:none}
-.baris-tambah .entry.ringkas #in-nama:not(:focus):placeholder-shown{border-color:transparent;background:transparent;box-shadow:none;outline:0;cursor:text}
+.baris-tambah:not(.kosong-isi) .entry.ringkas #in-nama:not(:focus):placeholder-shown{border-color:transparent;background:transparent;box-shadow:none;outline:0;cursor:text}
 .baris-tambah .hasil-nama{margin-top:6px}
 .baris-tambah.kosong-isi{padding:14px 16px 12px;cursor:default}
 .baris-tambah.kosong-isi:hover{background:none}
@@ -589,6 +589,48 @@ body:not(.peran-OWNER) .tabs-atas{display:none}
 .plusbar .plus-x{padding:0 4px;color:var(--abu-2)}
 .plusbar .plus-x:hover{color:var(--tinta)}
 .riwayat-fikri{margin-top:0}
+
+/* penerimaan baru yang belum ada barangnya: kotak nama barang tetap terlihat, dengan labelnya */
+.baris-tambah.kosong-isi .entry.ringkas > .ac > .l{display:block}
+
+/* opsi keterangan pudar (DFOD, RFND SBGN, ✎) — tinggal diklik */
+.cat-baris{flex-wrap:wrap;gap:6px 0}
+.cat-baris .cat-spasi{flex:1}
+.cat-baris #dfod-t:not(:empty){margin-right:6px}
+.opsi-k{display:inline-flex;align-items:center;gap:4px;border:1px dashed #d6cfc3;color:var(--abu-2);border-radius:12px;padding:1px 10px;font-size:11.5px;font-weight:600;white-space:nowrap;cursor:pointer;margin-left:6px;user-select:none}
+.opsi-k:hover{border-color:#b9ab98;color:var(--tinta)}
+.opsi-k.on{border-style:solid;border-color:#e0d2c1;background:#f6eee6;color:#8a5a3b;font-weight:700}
+.opsi-k.on.hijau{background:#e3ecdf;border-color:#cddcc6;color:#4a6b43}
+.opsi-k.on b{font-weight:600;opacity:.8}
+.opsi-k.ikon{padding:1px 8px}
+/* label kecil di dalam kotak Toko / akun pembeli */
+.pj-wrap{position:relative}
+.pj-wrap #p-pihak{padding-right:84px}
+.pj-chip{position:absolute;right:8px;top:50%;transform:translateY(-50%);font-size:10.5px;font-weight:700;border-radius:8px;padding:1px 7px;background:#e3ecdf;color:#4a6b43;white-space:nowrap;pointer-events:none}
+.pj-chip.toko{background:#fde9e1;color:#c2461b}
+
+/* tombol salin di daftar Hani: kecil & tenang */
+.salin-kecil{border:1px solid #e0d2c1;background:var(--kartu);color:var(--aksen);font-weight:600;font-size:12.5px;border-radius:14px;padding:4px 12px;cursor:pointer;font-family:inherit}
+.salin-kecil:hover:not(:disabled){background:#f6eee6}
+.salin-kecil:disabled{color:var(--abu-2);border-color:var(--garis);cursor:default;opacity:.8}
+
+/* memproses: bukan tulisan, cukup cincin berputar di sekeliling lingkaran nama */
+#loading{top:38vh;right:auto;left:50%;bottom:auto;transform:translateX(-50%);width:34px;height:34px;padding:0;border-radius:50%;border:3px solid #eadfd2;border-top-color:var(--aksen);background:transparent;animation:putar .8s linear infinite}
+body:has(#av-btn) #loading{display:none!important}
+@keyframes putar{to{transform:translateX(-50%) rotate(360deg)}}
+.userchip{position:relative}
+.userchip .av{position:relative}
+body.sibuk .userchip .av::after{content:"";position:absolute;inset:-4px;border-radius:50%;border:2px solid transparent;border-top-color:var(--aksen);border-right-color:var(--aksen);animation:putar2 .8s linear infinite}
+@keyframes putar2{to{transform:rotate(360deg)}}
+/* menu orang: semua nama langsung terlihat */
+.menu-user{min-width:210px;padding:6px}
+.menu-user .u-pil{display:flex;align-items:center;gap:10px;padding:7px 8px}
+.menu-user .u-pil .av.kecil{width:26px;height:26px;font-size:12px;flex:none}
+.menu-user .u-t{display:flex;flex-direction:column;line-height:1.25;flex:1}
+.menu-user .u-t small{color:var(--abu-2);font-size:11.5px}
+.menu-user .u-pil.aktif{background:#f6f2ec;cursor:default}
+.menu-user .u-cek{color:var(--sukses);font-weight:700}
+.menu-user .u-lain{display:block;border-top:1px solid var(--garis);margin-top:4px;border-radius:0 0 7px 7px}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -603,7 +645,7 @@ body:not(.peran-OWNER) .tabs-atas{display:none}
   </div>
   <div class="top-kanan"><div class="userchip" id="userchip"></div></div>
 </div></header>
-<div class="loading" id="loading">Memproses…</div>
+<div class="loading" id="loading" role="status" aria-label="Memproses" title="Memproses…"></div>
 <div class="loading on" id="antre-info" hidden style="top:auto;bottom:20px;right:20px;background:var(--biru-muda);color:var(--biru);border-color:#c5d9f0"></div>
 
 <main>
@@ -1006,14 +1048,14 @@ var sibuk = 0;
 function api(fn) { return panggil(fn, Array.prototype.slice.call(arguments, 1), true); }
 function apiDiam(fn) { return panggil(fn, Array.prototype.slice.call(arguments, 1), false); }
 function panggil(fn, args, tampil, langsung) {
-  if (tampil) { sibuk++; $('#loading').classList.add('on'); }
+  if (tampil) { sibuk++; $('#loading').classList.add('on'); document.body.classList.add('sibuk'); }
   return kirimJsonp({ fn: fn, n: langsung ? '' : S.nama, a: args || [] })
     .then(function (v) { selesai(); return v; }, function (e) {
       selesai();
       if (e && e.kodeSalah) kodeDitolak();
       throw e;
     });
-  function selesai() { if (!tampil) return; if (--sibuk <= 0) { sibuk = 0; $('#loading').classList.remove('on'); } }
+  function selesai() { if (!tampil) return; if (--sibuk <= 0) { sibuk = 0; $('#loading').classList.remove('on'); document.body.classList.remove('sibuk'); } }
 }
 
 /* ---------- sambungan ke server: JSONP ke Apps Script (bisa dari GitHub Pages maupun link /exec lama) ---------- */
@@ -1063,7 +1105,7 @@ function kirimJsonp(perintah) {
 }
 /** kode akses salah / sudah diganti: salinan data di HP dihapus, minta kode lagi */
 function kodeDitolak() {
-  KODE = ''; LS.del('qc_kode'); LS.del(KUNCI_DATA); LS.del(KUNCI_DETAIL); S.detail = null;
+  KODE = ''; LS.del('qc_kode'); LS.del(KUNCI_DATA); LS.del(KUNCI_DETAIL); LS.del('qc_user'); LS.del('qc_nama_list'); LS.keys('qc_list_').forEach(LS.del); S.detail = null;
   tampilKode('Kode akses salah atau sudah diganti. Minta kode terbaru ke Hani.');
 }
 function tampilKode(pesan) {
@@ -1234,19 +1276,26 @@ function mulai() {
   if (!KODE) { tampilKode(); return; }
   S.nama = LS.get('qc_nama') || S.nama || '';
   if (!S.nama) { tampilMasuk(); return; }
-  var cache = LS.get(KUNCI_DATA);
-  var pUser = api('getUser');
+  var cache = LS.get(KUNCI_DATA), uc = (LS.get('qc_user') || {})[S.nama.toLowerCase()];
+  var pakaiCache = !!(cache && uc);
+  // sudah pernah masuk di browser ini: langsung tampil dari salinan, dicek ke server diam-diam
+  var pUser = pakaiCache ? Promise.resolve(uc) : api('getUser');
+  if (pakaiCache) apiDiam('getUser').then(function (u) {
+    simpanUser(u); if (u.peran !== uc.peran) location.reload();
+  }).catch(function (e) { if (/tidak terdaftar|Masuk sebagai/.test(e.message)) keluar(); });
   var pData = cache ? Promise.resolve(cache.d) : api('getData');
   Promise.all([pUser, pData]).then(function (h) {
     $('#masuk').classList.remove('on');
-    S.boot = { user: h[0] };
+    S.boot = { user: h[0] }; simpanUser(h[0]);
+    if (!S.batches.length) S.batches = LS.get(kunciList()) || []; detail();
     terapkanData(h[1]);
     if (!cache) LS.set(KUNCI_DATA, { t: Date.now(), d: h[1] });
     // nama orang dalam bulatan kecil: inisial · nama · peran · Ganti
     // pojok kanan: cukup lingkaran huruf depan; klik → nama, peran, Ganti orang
     $('#userchip').innerHTML = '<button class="av" id="av-btn" type="button" title="' + esc(S.boot.user.nama) + '">' + esc(String(S.boot.user.nama || '?').charAt(0).toUpperCase()) + '</button>' +
-      '<div class="menu-top menu-user" id="menu-user"><div class="info-u"><b>' + esc(S.boot.user.nama) + '</b><span>' + (S.boot.user.peran === 'OWNER' ? 'Pemilik' : 'Admin QC') + '</span></div><a href="#" id="ganti-orang">Ganti orang</a></div>';
-    $('#ganti-orang').onclick = function (e) { e.preventDefault(); tutupMenuTop(); keluar(); };
+      '<div class="menu-top menu-user" id="menu-user"></div>';
+    isiMenuUser();
+    panggil('daftarNama', [], false, true).then(function (l) { LS.set('qc_nama_list', l); isiMenuUser(); }).catch(function () {});
     $('#av-btn').onclick = function (e) { e.stopPropagation(); var m = $('#menu-user'), buka = !m.classList.contains('on'); tutupMenuTop(); m.classList.toggle('on', buka); };
     // tampilan per orang: Hani = cek & setujui (semua tab), Admin QC = hanya Penerimaan
     document.body.className = document.body.className.replace(/\s*peran-\w+/g, '') + ' peran-' + S.boot.user.peran;
@@ -1254,7 +1303,7 @@ function mulai() {
     if (!owner() && S.view !== 'terima') buka('terima');
     if (!S.batch) editorKosong();
     $('#cetak-tgl').value = S.boot.hariIni;
-    muatBatches(true);
+    muatBatches(!S.batches.length);
     jalankanAntrean();
     // data di browser diperbarui diam-diam supaya nama baru & riwayat modal tetap segar
     if (cache) apiDiam('getData').then(function (d) { LS.set(KUNCI_DATA, { t: Date.now(), d: d }); terapkanData(d); if (S.batch) renderItems(); }).catch(function () {});
@@ -1268,17 +1317,50 @@ function mulai() {
 function tampilMasuk(pesan) {
   var el = $('#masuk');
   el.classList.add('on');
-  $('#masuk-daftar').innerHTML = '<div class="muted small">Memuat nama…</div>';
   $('#masuk-pesan').textContent = pesan || '';
+  var lama = LS.get('qc_nama_list');
+  if (lama) isiMasuk(lama); else $('#masuk-daftar').innerHTML = '<div class="muted small">Memuat nama…</div>';
   panggil('daftarNama', [], false, true).then(function (l) {
+    LS.set('qc_nama_list', l);
+    if (JSON.stringify(l) !== JSON.stringify(lama)) isiMasuk(l);
+    isiMenuUser();
+  }).catch(function (e) { if (!lama) $('#masuk-daftar').innerHTML = '<div class="info merah">' + esc(e.message) + '</div>'; });
+  function isiMasuk(l) {
     $('#masuk-daftar').innerHTML = l.length ? l.map(function (u) {
       return '<button class="masuk-nama" data-n="' + esc(u.nama) + '"><b>' + esc(u.nama) + '</b><span>' + (u.peran === 'OWNER' ? 'Pemilik · cek &amp; setujui' : 'Admin QC') + '</span></button>';
     }).join('') : '<div class="info kuning">Belum ada nama di tab APP_USERS.</div>';
     $$('#masuk-daftar [data-n]').forEach(function (b) {
       b.onclick = function () { S.nama = b.dataset.n; LS.set('qc_nama', S.nama); el.classList.remove('on'); mulai(); };
     });
-  }).catch(function (e) { $('#masuk-daftar').innerHTML = '<div class="info merah">' + esc(e.message) + '</div>'; });
+  }
 }
+/* klik lingkaran nama: langsung tampil semua orang, klik nama lain = pindah akun (tanpa "Ganti orang") */
+function isiMenuUser() {
+  var m = $('#menu-user'); if (!m || !S.boot) return;
+  var kini = S.boot.user, daftar = LS.get('qc_nama_list') || [];
+  var lain = daftar.filter(function (u) { return u.nama.toLowerCase() !== String(kini.nama).toLowerCase(); });
+  var baris = function (u, aktif) {
+    return '<a href="#" class="u-pil' + (aktif ? ' aktif' : '') + '" data-u="' + esc(u.nama) + '"><span class="av kecil">' + esc(String(u.nama).charAt(0).toUpperCase()) + '</span>' +
+      '<span class="u-t"><b>' + esc(u.nama) + '</b><small>' + (u.peran === 'OWNER' ? 'Pemilik' : 'Admin QC') + '</small></span>' + (aktif ? '<span class="u-cek">✓</span>' : '') + '</a>';
+  };
+  m.innerHTML = baris(kini, true) + lain.map(function (u) { return baris(u, false); }).join('') +
+    (lain.length ? '' : '<a href="#" id="ganti-orang" class="u-lain">Ganti orang</a>');
+  $$('#menu-user .u-pil').forEach(function (a) {
+    a.onclick = function (e) {
+      e.preventDefault(); tutupMenuTop();
+      if (a.classList.contains('aktif')) return;
+      pindahOrang(a.dataset.u);
+    };
+  });
+  var g = $('#ganti-orang'); if (g) g.onclick = function (e) { e.preventDefault(); tutupMenuTop(); keluar(); };
+}
+function pindahOrang(nama) {
+  LS.del('qc_nama'); S.boot = null; S.batch = null; S.batches = [];
+  $('#userchip').innerHTML = ''; editorKosong(); renderDaftar();
+  S.nama = nama; LS.set('qc_nama', nama); mulai();
+}
+function simpanUser(u) { var m = LS.get('qc_user') || {}; m[S.nama.toLowerCase()] = u; LS.set('qc_user', m); }
+function kunciList() { return 'qc_list_' + S.nama.toLowerCase(); }
 function keluar() {
   LS.del('qc_nama'); S.nama = ''; S.boot = null; S.batch = null; S.batches = [];
   $('#userchip').innerHTML = ''; editorKosong(); renderDaftar();
@@ -1303,7 +1385,13 @@ function isiDatalist() {
     el.innerHTML = arr.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('');
   };
   dl('dl-rekening', S.boot.pemasok.rekening || []);
-  dl('dl-pihak', S.boot.pemasok.pihak || []);
+  // toko / akun per marketplace: hanya yang pernah dipakai di marketplace itu + akun pembeli kita
+  var mpL = (S.boot.pemasok || {}).pihakMp || {};
+  ['SHOPEE', 'TOKOPEDIA', 'TOCO'].forEach(function (j) {
+    var a = (mpL[j] || []).map(function (x) { return String(x).toUpperCase(); }), up = a;
+    AKUN_PEMBELI.forEach(function (x) { if (up.indexOf(x) < 0) a.push(x); });
+    dl('dl-pihak-' + j, a);
+  });
   dl('dl-merek', S.boot.merek || []);
   dl('dl-kap-stor', ['64GB','120GB','128GB','160GB','180GB','240GB','250GB','256GB','480GB','500GB','512GB','960GB','1TB','2TB','4TB']);
   dl('dl-kap-ram', ['2GB','4GB','8GB','16GB','24GB','32GB','48GB','64GB','96GB','128GB']);
@@ -1353,7 +1441,7 @@ function muatBatches(tampil) {
       if (S.batch && S.batch.id === x.id && !S.batch._lokal && x.d.versi !== S.batch.versi) baru = x.d;
       delete x.d;
     });
-    LS.set(KUNCI_DETAIL, S.detail);
+    LS.set(KUNCI_DETAIL, S.detail); LS.set(kunciList(), l);
     S.batches = l; renderDaftar(); updateBadge(); segarkanDetail(l);
     if (baru) bukaBatch(baru);                 // yang sedang dibuka berubah di server & belum diedit di sini: tampilkan versi terbaru
   }).catch(gagal);
@@ -1459,7 +1547,7 @@ function renderKartu(l, kosongTeks) {
   var siap = l.filter(function (b) { return dc[b.id] && S.detail && S.detail[b.id]; });
   var h = '';
   if (l.length && bisaCek) h += '<li class="kk-alat"><span class="grow muted small">' + siap.length + ' dari ' + l.length + ' sudah dicek</span>' +
-    '<button class="btn utama" id="salin-dicek"' + (siap.length ? '' : ' disabled title="Centang dulu yang sudah dicek"') + '>⧉ Salin yang sudah dicek' + (siap.length ? ' (' + siap.length + ')' : '') + '</button></li>';
+    '<button class="salin-kecil" id="salin-dicek" title="Salin yang sudah dicek"' + (siap.length ? '' : ' disabled') + '>⧉ Salin' + (siap.length ? ' ' + siap.length : '') + '</button></li>';
   h += '<li class="kk-grid">' + (l.length ? l.map(function (b) {
     var d = S.detail && S.detail[b.id], j = b._job;
     var isi = d ? (d.items || []).map(function (it) {
@@ -1638,10 +1726,10 @@ function renderEditor() {
       '<div class="row wrap pita"><h2 class="grow" style="margin:0">' + (p.identitas ? 'Ubah pemasok' : 'Penerimaan baru') + '</h2>' + tandaStatus(b, ubah) + ikonRiwayat() + menuTitik(b, ubah) + '</div>' +
       '<div class="pemasok' + (mp ? '' : ' satu') + '" style="margin-top:12px">' +
       '<div><label class="l">No. pesanan / Nama rekening <span class="sumber-tag ' + p.jenis + '" id="pv-sumber"' + (p.identitas ? '' : ' hidden') + '>' + esc(sumberBarang(p.jenis)) + '</span></label><input class="f" id="p-id" value="' + esc(p.identitas) + '" list="dl-rekening" placeholder="contoh: 260922NQN8JUKH atau Ahmad Muhazir" autocomplete="off"></div>' +
-      '<div id="pihak-sel"' + (mp ? '' : ' hidden') + '><label class="l"><span id="l-pihak">' + (mp ? 'Toko / akun pembeli' : 'Nama kontak') + '</span> <span class="biasa-tag" id="pv-biasa" hidden></span></label><input class="f" id="p-pihak" list="dl-pihak" value="' + esc(mp ? p.pihak : pisahDfod(p.pihak).k) + '" placeholder="' + (mp ? 'contoh: Hanacell atau Erik' : 'contoh: NICO') + '">' +
-        '<div class="small muted" id="pj-info" style="margin-top:4px"></div></div>' +
+      '<div id="pihak-sel"' + (mp ? '' : ' hidden') + '><label class="l"><span id="l-pihak">' + (mp ? 'Toko / akun pembeli' : 'Nama kontak') + '</span> <span class="biasa-tag" id="pv-biasa" hidden></span></label><div class="pj-wrap" id="pj-wrap"><input class="f" id="p-pihak" list="dl-pihak-' + (mp ? p.jenis : 'rek') + '" value="' + esc(mp ? p.pihak : pisahDfod(p.pihak).k) + '" placeholder="' + (mp ? 'contoh: Hanacell atau Erik' : 'contoh: NICO') + '">' +
+        '<span class="pj-chip" id="pj-chip" hidden></span></div></div>' +
       '</div>' +
-      '<div class="cat-baris"><span id="kontak-t"></span><span id="dfod-t"></span><span id="cat-lihat"></span><input class="f" id="p-cat" value="' + esc(p.catatan) + '" placeholder="catatan, contoh: RFND SBGN" hidden></div>' +
+      '<div class="cat-baris"><span id="kontak-t"></span><span class="grow cat-spasi"></span><span id="dfod-t"></span><span id="cat-lihat"></span><input class="f" id="p-cat" value="' + esc(p.catatan) + '" placeholder="catatan, contoh: RFND SBGN" hidden></div>' +
       '<div id="pv-warn" class="small" style="margin-top:6px"></div>' +
       '</div>';
   }
@@ -1743,24 +1831,25 @@ function pasangPemasok() {
     var pil = [];
     (bi ? bi.d : []).forEach(function (x) { var k = pisahDfod(x).k; if (k && pil.indexOf(k) < 0) pil.push(k); });
     dl.innerHTML = pil.map(function (x) { return '<option value="' + esc(x) + '">'; }).join('');
-    el.setAttribute('list', mp ? 'dl-pihak' : 'dl-pihak-rek');
+    el.setAttribute('list', mp ? 'dl-pihak-' + p.jenis : 'dl-pihak-rek');
     p.pihak = mp ? el.value.toUpperCase() : gabungDfod(el.value.toUpperCase(), dfod);
     var sama = !mp && isi && p.pihak === isi;
     tag.hidden = !sama;
     if (sama) tag.textContent = '· sama seperti terakhir';
   };
+  // DFOD: opsi pudar yang tinggal diklik (terisi otomatis kalau pemasok ini biasanya DFOD)
   var segarDfod = function () {
     var t = $('#dfod-t'); if (!t) return;
     if (p.jenis !== 'DIRECT') { t.innerHTML = ''; return; }
-    t.innerHTML = dfod ? '<span class="lencana" id="dfod-b" title="Ongkir bayar di kita — klik untuk batal">DFOD ✕</span>'
-                       : '<span class="tautan" id="dfod-b" title="Ongkir bayar di kita">+ DFOD</span>';
+    t.innerHTML = dfod ? '<span class="opsi-k on hijau" id="dfod-b" title="Ongkir bayar di kita — klik untuk batal">DFOD ✕</span>'
+                       : '<span class="opsi-k" id="dfod-b" title="Ongkir bayar di kita">DFOD</span>';
     $('#dfod-b').onclick = function () { dfod = !dfod; auto = false; sentuh = true; segar(); };
   };
   // Direct: nama kontak tidak jadi kotak besar, cukup "+ Nama kontak" (terisi → lencana "NICO ✕"); marketplace tetap kotak Toko / akun
   var segarKontak = function () {
     var el = $('#p-pihak'), sel = $('#pihak-sel'), t = $('#kontak-t'), mp = p.jenis !== 'DIRECT'; if (!el || !t) return;
     $('.pemasok').classList.toggle('satu', !mp); sel.hidden = mp ? false : true;
-    if (mp) { if (el.parentNode !== sel) sel.insertBefore(el, $('#pj-info')); el.hidden = false; el.classList.remove('kecil'); t.innerHTML = ''; return; }
+    if (mp) { if (el.parentNode !== $('#pj-wrap')) $('#pj-wrap').insertBefore(el, $('#pj-chip')); el.hidden = false; el.classList.remove('kecil'); t.innerHTML = ''; return; }
     if (el.parentNode !== t.parentNode) t.parentNode.insertBefore(el, t.nextSibling);
     el.classList.add('kecil');
     if (document.activeElement === el) { t.innerHTML = ''; return; }
@@ -1772,20 +1861,27 @@ function pasangPemasok() {
       t.innerHTML = ''; el.hidden = false; el.focus(); el.select();
     };
   };
+  // keterangan: opsi pudar RFND SBGN, atau ✎ untuk menulis sendiri
   var segarCatatan = function () {
     var inp = $('#p-cat'), lihat = $('#cat-lihat'); if (!inp) return;
     if (document.activeElement === inp) return;
     var v = inp.value.trim(); inp.hidden = true;
-    lihat.innerHTML = v ? '<span class="lencana" id="cat-ubah" title="Klik untuk ubah">' + esc(v) + ' <b id="cat-x" title="Hapus catatan">✕</b></span>'
-                        : '<span class="tautan" id="cat-ubah">+ Catatan</span>';
-    $('#cat-ubah').onclick = function (e) {
-      if (e.target.id === 'cat-x') { inp.value = ''; segar(); return; }
-      lihat.innerHTML = ['RFND SBGN', 'RETURN', 'TUKER TAMBAH'].map(function (c) { return '<button class="cepat" data-c="' + c + '">' + c + '</button>'; }).join('');
+    if (!v) lihat.innerHTML = '<span class="opsi-k" data-opsi="RFND SBGN">RFND SBGN</span><span class="opsi-k ikon" id="cat-tulis" title="Tulis keterangan lain">✎</span>';
+    else lihat.innerHTML = '<span class="opsi-k on" id="cat-ubah" title="Klik ✕ untuk batal">' + esc(v) + ' <b id="cat-x">✕</b></span>';
+    var o = $('#cat-lihat [data-opsi]'); if (o) o.onclick = function () { inp.value = o.dataset.opsi; segar(); };
+    var u = $('#cat-ubah');
+    if (u) u.onclick = function (e) {
+      if (e.target.id === 'cat-x' || v === 'RFND SBGN') { inp.value = ''; segar(); return; }
+      bukaTulis();
+    };
+    var tl = $('#cat-tulis'); if (tl) tl.onclick = bukaTulis;
+    function bukaTulis() {
+      lihat.innerHTML = ['RETURN', 'TUKER TAMBAH'].map(function (c) { return '<button class="cepat" data-c="' + c + '">' + c + '</button>'; }).join('');
       inp.hidden = false; inp.focus(); inp.select();
       $$('#cat-lihat .cepat').forEach(function (b) {
         b.onmousedown = function (ev) { ev.preventDefault(); inp.value = b.dataset.c; inp.blur(); };
       });
-    };
+    }
   };
   var baca = function () {
     if (!$('#p-id')) return;
@@ -1803,7 +1899,9 @@ function pasangPemasok() {
     segarDfod(); segarKontak();
     segarCatatan();
     $('#p-pihak').placeholder = mp ? 'contoh: Hanacell atau Erik' : 'contoh: NICO';
-    var pi = $('#pj-info'); pi.hidden = !mp || !String(p.pihak || '').trim(); pi.textContent = jenisPihak(p.pihak) === 'akun' ? 'Akun pembeli kita — ditulis tanpa ' + j.prefix : 'Nama toko — ditulis ' + j.prefix + ' ' + String(p.pihak || '').toUpperCase();
+    var pc = $('#pj-chip'), adaP = mp && String(p.pihak || '').trim(), akun = jenisPihak(p.pihak) === 'akun';
+    pc.hidden = !adaP; pc.textContent = akun ? 'akun kita' : j.prefix; pc.className = 'pj-chip' + (akun ? '' : ' toko');
+    pc.title = akun ? 'Akun pembeli kita — ditulis tanpa ' + j.prefix : 'Nama toko — ditulis ' + j.prefix + ' ' + String(p.pihak || '').toUpperCase();
     var w = identitasJanggal(p.identitas) ? 'Nomor ini tidak cocok dengan pola Shopee / Tokopedia / TOCO — cek lagi' : '';
     $('#pv-warn').innerHTML = w ? '<span class="hint warn">' + esc(w) + '</span>' : '';
     tandaiUbah();

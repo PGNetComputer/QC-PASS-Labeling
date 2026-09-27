@@ -570,6 +570,19 @@ body.peran-OWNER #pm-ringkas.pita{padding:8px 12px!important;border-bottom:0;fle
 }
 .beres-tag{font-size:11px;font-weight:700;color:var(--sukses);background:var(--sukses-muda);border-radius:9px;padding:1px 8px;white-space:nowrap;margin-left:4px}
 #list-batch li.ringkas.s-DISETUJUI .nm{color:var(--abu);font-weight:500}
+
+/* Hani: kartu satu kolom, tinggal digulir */
+.kk-grid{columns:1!important;max-width:680px;margin:0 auto!important}
+.panel-daftar.mode-kartu li.kk-alat{max-width:680px;margin:0 auto!important}
+/* Fikri: tanpa tab, riwayat kartu di bawah form */
+body:not(.peran-OWNER) .tabs-atas{display:none}
+.riwayat-fikri{margin-top:14px}
+.riwayat-fikri .kk{cursor:pointer}
+.kk.s-DISETUJUI{background:#f7faf4;border-color:#cfdcc7}
+.kk.aktif{outline:2px solid #b9ab98;outline-offset:-1px}
+.ik-riwayat{position:relative;font-size:15px;width:34px}
+.ik-riwayat .n{position:absolute;top:-4px;right:-6px;background:#efebe3;color:var(--abu);font-size:10px;font-weight:700;border-radius:8px;padding:0 5px;line-height:15px;border:1px solid var(--kartu)}
+.ik-riwayat.on{background:#ebe6dd;color:var(--tinta)}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -598,6 +611,7 @@ body.peran-OWNER #pm-ringkas.pita{padding:8px 12px!important;border-bottom:0;fle
       </div>
       <div class="kartu daftar panel-daftar" id="panel-daftar" hidden><ul id="list-batch"></ul></div>
       <div class="kartu" id="editor"></div>
+      <div id="riwayat-fikri" class="riwayat-fikri" hidden></div>
     </div>
   </section>
 
@@ -1393,9 +1407,12 @@ function renderDaftar() {
   });
   var l = S.tabBuka ? tampil.filter(function (b) { return grupTab(b.status) === S.tabBuka; }) : [];
   var kosongTeks = { SEMUA: 'Belum ada yang ditulis.', BELUM: 'Semua sudah dicek.', DISETUJUI: owner() ? 'Belum ada yang beres.' : 'Belum ada yang beres 7 hari terakhir.' };
-  $('#panel-daftar').hidden = !S.tabBuka;
   $('#panel-daftar').classList.toggle('mode-kartu', owner());
-  if (owner()) { renderKartu(l.slice().reverse(), kosongTeks[S.tabBuka] || ''); return; }
+  if (owner()) { $('#panel-daftar').hidden = !S.tabBuka; renderKartu(l.slice().reverse(), kosongTeks[S.tabBuka] || ''); return; }
+  // Fikri: tidak ada tab — riwayat berupa kartu di bawah form, dibuka lewat ikon 🕘 di kartu "Penerimaan baru"
+  $('#panel-daftar').hidden = true;
+  renderRiwayatFikri(tampil, lokal);
+  return;
   $('#list-batch').innerHTML = l.length ? l.map(barisDaftar).join('') : '<div class="kosong small">' + (kosongTeks[S.tabBuka] || '') + '</div>';
   $$('#list-batch li[data-id]').forEach(function (li) { li.onclick = function () { pilihBatch(li.dataset.id); }; });
   function barisDaftar(b) {
@@ -1473,6 +1490,41 @@ function renderKartu(l, kosongTeks) {
   };
 }
 /** Hani menutup penerimaan yang dibuka → kembali ke kartu (perubahan disimpan dulu) */
+/* ---------- Fikri: riwayat berupa kartu (ikon 🕘 di pojok kartu penerimaan) ---------- */
+function ikonRiwayat() {
+  if (owner()) return '';
+  return '<button type="button" class="ik tampil ik-riwayat' + (S.riwayatBuka ? ' on' : '') + '" data-riwayat title="Riwayat yang sudah ditulis">🕘<span class="n">' + (S.nRiwayat || 0) + '</span></button>';
+}
+function renderRiwayatFikri(list, lokal) {
+  S.nRiwayat = list.length;
+  $$('.ik-riwayat .n').forEach(function (n) { n.textContent = list.length; });
+  $$('.ik-riwayat').forEach(function (x) { x.classList.toggle('on', !!S.riwayatBuka); });
+  var el = $('#riwayat-fikri'); if (!el) return;
+  el.hidden = !S.riwayatBuka;
+  if (!S.riwayatBuka) { el.innerHTML = ''; return; }
+  var lok = {}; (lokal || []).forEach(function (x) { lok[x.id || x.lokalId] = x; });
+  var aktif = S.batch && (S.batch.id || S.batch.lokalId);
+  el.innerHTML = list.length ? list.map(function (b) {
+    var d = (S.detail && S.detail[b.id]) || lok[b.id];
+    if (aktif === b.id && S.batch) d = S.batch;
+    var isi = d ? (d.items || []).map(function (it) {
+      return '<div class="kk-b' + (it.retur ? ' retur' : '') + ((it.asal || it.olehHani) ? ' dikoreksi' : '') + '">' + esc(it.nama) + ' <span class="kk-q">(' + it.qty + ')</span> ' +
+        (it.retur ? '<span class="kk-r">' + esc(String(it.alasan || 'RETUR').toUpperCase()) + '</span>' : (it.modal > 0 ? '<span class="kk-m">' + angkaTitik(it.modal) + '</span>' : '<span class="kk-kosong">modal?</span>')) + '</div>';
+    }).join('') || '<div class="muted small">belum ada barang</div>' : '<div class="muted small">memuat…</div>';
+    var nK = d ? jumlahKoreksi(d) : 0;
+    return '<div class="kk kk-f s-' + b.status + (aktif === b.id ? ' aktif' : '') + '" data-id="' + esc(b.id) + '"><div class="kk-judul">' + esc(b.pemasok || '(tanpa nama)') + '</div>' + isi +
+      '<div class="kk-kaki"><span class="muted small grow">' + (b.status === 'DRAFT' ? '<span class="kk-diisi">✏ masih diisi</span> ' : '') + (nK ? '✎ ' + nK + ' dibetulkan Hani' : '') + '</span>' +
+      (b.status === 'DISETUJUI' ? '<span class="beres-tag">✓ beres</span>' : '') + '</div></div>';
+  }).join('') : '<div class="kosong small">Belum ada yang ditulis.</div>';
+  $$('.kk-f', el).forEach(function (k) {
+    k.onclick = function () { pilihBatch(k.dataset.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+  });
+}
+document.addEventListener('click', function (e) {
+  var t = e.target.closest && e.target.closest('[data-riwayat]'); if (!t) return;
+  e.preventDefault(); S.riwayatBuka = !S.riwayatBuka; renderDaftar();
+  if (S.riwayatBuka) setTimeout(function () { var el = $('#riwayat-fikri'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
+});
 function tutupEditorHani() {
   if (S.autoTimer) kirimOtomatis(true);
   editorKosong();
@@ -1561,7 +1613,7 @@ function renderEditor() {
   html += '<div class="pm-ringkas pita" id="pm-ringkas"' + (ringkas ? '' : ' hidden') + '>' + isiRingkas(b, ubah) + '</div>';
   if (ubah) {
     html += '<div id="pm-form"' + (ringkas ? ' hidden' : '') + '>' +
-      '<div class="row wrap pita"><h2 class="grow" style="margin:0">' + (p.identitas ? 'Ubah pemasok' : 'Penerimaan baru') + '</h2>' + tandaStatus(b, ubah) + menuTitik(b, ubah) + '</div>' +
+      '<div class="row wrap pita"><h2 class="grow" style="margin:0">' + (p.identitas ? 'Ubah pemasok' : 'Penerimaan baru') + '</h2>' + tandaStatus(b, ubah) + ikonRiwayat() + menuTitik(b, ubah) + '</div>' +
       '<div class="pemasok' + (mp ? '' : ' satu') + '" style="margin-top:12px">' +
       '<div><label class="l">No. pesanan / Nama rekening <span class="sumber-tag ' + p.jenis + '" id="pv-sumber"' + (p.identitas ? '' : ' hidden') + '>' + esc(sumberBarang(p.jenis)) + '</span></label><input class="f" id="p-id" value="' + esc(p.identitas) + '" list="dl-rekening" placeholder="contoh: 260922NQN8JUKH atau Ahmad Muhazir" autocomplete="off"></div>' +
       '<div id="pihak-sel"' + (mp ? '' : ' hidden') + '><label class="l"><span id="l-pihak">' + (mp ? 'Toko / akun pembeli' : 'Nama kontak') + '</span> <span class="biasa-tag" id="pv-biasa" hidden></span></label><input class="f" id="p-pihak" list="dl-pihak" value="' + esc(mp ? p.pihak : pisahDfod(p.pihak).k) + '" placeholder="' + (mp ? 'contoh: Hanacell atau Erik' : 'contoh: NICO') + '">' +
@@ -1633,7 +1685,7 @@ function isiRingkas(b, ubah) {
     '<span class="grow"></span>' + (ubah ? '<span class="simpan-info" id="simpan-info">' + esc(S.infoSimpan || '') + '</span>' : '') +
     tandaStatus(b, ubah) +
     (ubah ? '<button class="ik tampil" id="pm-ubah" title="Ubah pemasok">' + IKON_PENA + '</button>' : '') +
-    menuTitik(b, ubah);
+    ikonRiwayat() + menuTitik(b, ubah);
 }
 /** tombol ⋯ : pilihan yang jarang dipakai (tunda & hapus) disembunyikan di sini */
 function menuTitik(b, ubah) {

@@ -1281,11 +1281,13 @@ function mulai() {
   // sudah pernah masuk di browser ini: langsung tampil dari salinan, dicek ke server diam-diam
   var pUser = pakaiCache ? Promise.resolve(uc) : api('getUser');
   if (pakaiCache) apiDiam('getUser').then(function (u) {
+    if (cekReset(u)) return;
     simpanUser(u); if (u.peran !== uc.peran) location.reload();
   }).catch(function (e) { if (/tidak terdaftar|Masuk sebagai/.test(e.message)) keluar(); });
   var pData = cache ? Promise.resolve(cache.d) : api('getData');
   Promise.all([pUser, pData]).then(function (h) {
     $('#masuk').classList.remove('on');
+    if (!pakaiCache && cekReset(h[0])) return;
     S.boot = { user: h[0] }; simpanUser(h[0]);
     if (!S.batches.length) S.batches = LS.get(kunciList()) || []; detail();
     terapkanData(h[1]);
@@ -1358,6 +1360,14 @@ function pindahOrang(nama) {
   LS.del('qc_nama'); S.boot = null; S.batch = null; S.batches = [];
   $('#userchip').innerHTML = ''; editorKosong(); renderDaftar();
   S.nama = nama; LS.set('qc_nama', nama); mulai();
+}
+/* Hani menjalankan hapusSemuaRiwayat di Apps Script → salinan penerimaan di browser ini ikut dibersihkan */
+function cekReset(u) {
+  var r = String((u && u.reset) || ''), lama = String(LS.get('qc_reset') || '');
+  if (r === lama) return false;
+  ['qc_list_', 'qc_draft_', 'qc_antre_'].forEach(function (p) { LS.keys(p).forEach(LS.del); });
+  LS.del(KUNCI_DETAIL); LS.del(KUNCI_DICEK); LS.set('qc_reset', r);
+  location.reload(); return true;
 }
 function simpanUser(u) { var m = LS.get('qc_user') || {}; m[S.nama.toLowerCase()] = u; LS.set('qc_user', m); }
 function kunciList() { return 'qc_list_' + S.nama.toLowerCase(); }

@@ -568,6 +568,8 @@ body.peran-OWNER #pm-ringkas.pita{padding:8px 12px!important;border-bottom:0;fle
     margin-left:env(titlebar-area-x,0);width:env(titlebar-area-width,100%);min-height:env(titlebar-area-height,40px);padding-top:3px;padding-bottom:3px}
   header.top button,header.top a,header.top .menu-top,header.top input{-webkit-app-region:no-drag;app-region:no-drag}
 }
+.beres-tag{font-size:11px;font-weight:700;color:var(--sukses);background:var(--sukses-muda);border-radius:9px;padding:1px 8px;white-space:nowrap;margin-left:4px}
+#list-batch li.ringkas.s-DISETUJUI .nm{color:var(--abu);font-weight:500}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -1183,7 +1185,7 @@ function ringkas(b) {
            dibuatOleh: b.dibuatOleh, tanggalDisetujui: b.tanggalDisetujui, catatanHani: b.catatanHani || '', versi: b.versi, koreksi: jumlahKoreksi(b) };
 }
 function editorKosong(pesan) {
-  S.batch = null; S.tabBuka = owner() ? (S.filter || 'BELUM') : 'BELUM'; if ($('#tabs-daftar')) renderDaftar();
+  S.batch = null; S.tabBuka = owner() ? (S.filter || 'BELUM') : 'SEMUA'; if ($('#tabs-daftar')) renderDaftar();
   if (owner()) { $('#editor').innerHTML = ''; $('#editor').hidden = true; if (pesan) toast(pesan); return; }
   if (!S.boot || !S.boot.user) { $('#editor').innerHTML = ''; return; }
   // Admin QC: tidak ada tombol "+ Penerimaan baru" lagi — layar selalu langsung siap untuk penerimaan baru
@@ -1369,9 +1371,10 @@ function renderDaftar() {
   var batas = !owner() && S.boot && S.boot.hariIni ? tambahHari(S.boot.hariIni, -7) : '';
   var tampil = semua.filter(function (b) { return b.status !== 'DISETUJUI' || !batas || (b.tanggalDisetujui || '') >= batas; });
   // cukup dua tab: yang masih diisi & yang sudah ditandai selesai sama-sama "Belum dicek"
-  var grupTab = function (st) { return st === 'DISETUJUI' ? 'DISETUJUI' : 'BELUM'; };
+  // Hani: Belum dicek / Beres. Fikri: cukup satu daftar "Riwayat" — yang sudah beres ditandai ✓ di dalamnya
+  var grupTab = function (st) { return !owner() ? 'SEMUA' : st === 'DISETUJUI' ? 'DISETUJUI' : 'BELUM'; };
   var jml = {}; tampil.forEach(function (b) { var g = grupTab(b.status); jml[g] = (jml[g] || 0) + 1; });
-  var tabs = [['BELUM', owner() ? 'Belum dicek' : 'Sudah ditulis'], ['DISETUJUI', '✓ Beres']];
+  var tabs = owner() ? [['BELUM', 'Belum dicek'], ['DISETUJUI', '✓ Beres']] : [['SEMUA', 'Riwayat']];
   $('#tabs-daftar').innerHTML = tabs.map(function (t) {
     return '<button class="tab' + (t[0] === 'BELUM' ? ' k' : '') + (S.tabBuka === t[0] ? ' on' : '') + '" data-t="' + t[0] + '">' + t[1] +
       '<span class="n">' + (jml[t[0]] || 0) + '</span><span class="panah">' + (S.tabBuka === t[0] ? '▴' : '▾') + '</span></button>';
@@ -1389,7 +1392,7 @@ function renderDaftar() {
     };
   });
   var l = S.tabBuka ? tampil.filter(function (b) { return grupTab(b.status) === S.tabBuka; }) : [];
-  var kosongTeks = { BELUM: owner() ? 'Semua sudah dicek.' : 'Belum ada yang ditulis.', DISETUJUI: owner() ? 'Belum ada yang beres.' : 'Belum ada yang beres 7 hari terakhir.' };
+  var kosongTeks = { SEMUA: 'Belum ada yang ditulis.', BELUM: 'Semua sudah dicek.', DISETUJUI: owner() ? 'Belum ada yang beres.' : 'Belum ada yang beres 7 hari terakhir.' };
   $('#panel-daftar').hidden = !S.tabBuka;
   $('#panel-daftar').classList.toggle('mode-kartu', owner());
   if (owner()) { renderKartu(l.slice().reverse(), kosongTeks[S.tabBuka] || ''); return; }
@@ -1406,7 +1409,7 @@ function renderDaftar() {
         (j && !j.gagal ? '<span class="muted small">' + lbl + '</span>' : '') +
         (j && j.gagal ? '<span class="small" style="color:var(--merah)" title="' + esc(j.gagal) + '">✕ gagal</span>' : '') +
         (b.catatanHani && b.status === 'DRAFT' ? '<span class="small" style="color:var(--kuning-tua)" title="Dikembalikan Hani — ada catatan">⚑</span>' : '') +
-        tandaK + (b.status === 'DISETUJUI' ? '<span class="ok">✓</span>' : '<span class="unit">' + b.qty + ' unit</span>') + '</li>';
+        tandaK + '<span class="unit">' + b.qty + ' unit</span>' + (b.status === 'DISETUJUI' ? '<span class="beres-tag" title="Sudah dicek Hani — tidak bisa diubah lagi">✓ beres</span>' : '') + '</li>';
     }
     return '<li class="' + on + '" data-id="' + esc(b.id) + '"><div class="row"><span class="nm grow">' + esc(b.pemasok || '(tanpa nama)') + '</span>' + tandaK + '<span class="st ' + b.status + '">' + lbl + '</span></div>' +
       '<div class="muted small">' + esc(b.sumber) + ' · ' + b.baris + ' baris · ' + b.qty + ' unit · ' + rp(b.nilai) + (b.dibuatOleh ? ' · ' + esc(b.dibuatOleh) : '') + '</div>' +
@@ -1570,7 +1573,7 @@ function renderEditor() {
   }
   if (b.status === 'DRAFT' && b.catatanHani) html += '<div class="catatan-hani" style="margin-top:12px"><b>Catatan dari Hani:</b> ' + esc(b.catatanHani) + '</div>';
   if (b.status === 'DRAFT' && owner() && b.dibuatOleh) html += '<div class="info kuning" style="background:var(--hijau-muda);color:var(--abu)">' + esc(b.dibuatOleh) + ' masih mengisi penerimaan ini (belum klik Selesai).</div>';
-  if (b.status === 'DISETUJUI') html += '<div class="info hijau">Beres ' + esc(b.tanggalDisetujui) + (owner() ? ' — barcode ada di tab <b>Barcode &amp; Cetak</b>.' : ' oleh Hani.') + '</div>';
+  if (b.status === 'DISETUJUI') html += '<div class="info hijau">' + (owner() ? 'Beres ' + esc(b.tanggalDisetujui) + (b.tanpaBarcode ? '.' : ' — barcode ada di tab <b>Barcode &amp; Cetak</b>.') : '✓ Sudah dicek Hani ' + esc(b.tanggalDisetujui) + '. Ini riwayat, tidak bisa diubah lagi.') + '</div>';
   var nKor = jumlahKoreksi(b);
   if (nKor && !owner()) html += '<div class="info" style="background:#f6eee6;color:#8a5a3b">✎ ' + nKor + ' baris dibetulkan Hani — lihat tanda di bawah nama barang.</div>';
   html += '</div>';
@@ -2300,7 +2303,7 @@ function tandaKoreksi(it) {
 }
 function renderItems() {
   var b = S.batch, ubah = bisaUbah(), items = b.items;
-  var disetujui = b.status === 'DISETUJUI', kol = 5 + (disetujui ? 1 : 0) + (ubah ? 1 : 0);
+  var disetujui = b.status === 'DISETUJUI' && items.some(function (x) { return x.kode; }), kol = 5 + (disetujui ? 1 : 0) + (ubah ? 1 : 0);
   // saat masih bisa diisi, judul kolom tidak ditampilkan: label Nama barang / Qty / Modal sudah ada di baris "+" di bawah (tidak dobel)
   var h = (ubah ? '<colgroup><col style="width:36px"><col style="width:100%"><col><col><col><col></colgroup>' :
     '<thead><tr><th style="width:36px">#</th>' + (disetujui ? '<th>Kode</th>' : '') + '<th style="width:100%">Nama barang</th><th class="num">Qty</th><th class="num">Modal</th><th class="num">Subtotal</th></tr></thead>') + '<tbody>';
@@ -2308,8 +2311,8 @@ function renderItems() {
   var aksi = function (i) { return ubah ? '<td class="aksi"><button class="ik" data-ubah="' + i + '" title="Ubah baris ini">' + IKON_PENA + '</button><button class="ik hapus" data-hapus="' + i + '" title="Hapus baris ini">' + IKON_SAMPAH + '</button></td>' : ''; };
   items.forEach(function (it, i) {
     if (it.retur) return;
-    var info = infoModal(it), aneh = it.modal > 0 && info && info.aneh(it.modal);
-    var baru = it.baru || (S.masterIdx[String(it.dasar).toLowerCase()] || {}).s === 'BARU';
+    var info = infoModal(it), aneh = b.status !== 'DISETUJUI' && it.modal > 0 && info && info.aneh(it.modal);   // riwayat: tanpa peringatan
+    var baru = b.status !== 'DISETUJUI' && (it.baru || (S.masterIdx[String(it.dasar).toLowerCase()] || {}).s === 'BARU');
     var sel = ubah ? '<input class="im' + (it.modal > 0 ? '' : ' kosong') + '" data-m="' + i + '" inputmode="numeric" placeholder="isi modal" value="' + (it.modal > 0 ? 'Rp' + new Intl.NumberFormat('id-ID').format(it.modal) : '') + '">'
                    : (it.modal > 0 ? rp(it.modal) : '<span class="muted">—</span>');
     h += '<tr class="' + (aneh ? 'flag-harga' : '') + (i === S.editIndex ? ' editing' : '') + (it === S.sorot ? ' baru-masuk' : '') + '"><td class="muted c-no">' + (++no) + '</td>' +
@@ -2405,7 +2408,7 @@ function segarKaki() {
     (kosong && b.status !== 'DISETUJUI' ? '<span class="warn-modal">⚠ ' + kosong + ' modal belum diisi</span>' : '') + (items.length ? rp(nilai) : '');
   $('#chips').innerHTML = ringkasKategori(items) +
     (rt.length ? '<span class="chip r"><b>' + rt.reduce(function (s, x) { return s + x.qty; }, 0) + '</b>Dikembalikan</span>' : '') +
-    (nBaru ? '<span class="tag baru">🆕 ' + nBaru + ' nama baru</span>' : '') + (nHarga ? '<span class="tag harga">⚠ ' + nHarga + ' harga perlu dicek</span>' : '');
+    (b.status === 'DISETUJUI' ? '' : (nBaru ? '<span class="tag baru">🆕 ' + nBaru + ' nama baru</span>' : '') + (nHarga ? '<span class="tag harga">⚠ ' + nHarga + ' harga perlu dicek</span>' : ''));
   ['#act-kirim', '#act-setuju'].forEach(function (s) {
     var k = $(s); if (!k) return;
     k.disabled = kosong > 0 || tanpaRank > 0;

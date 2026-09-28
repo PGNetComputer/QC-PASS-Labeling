@@ -631,6 +631,10 @@ body.sibuk .userchip .av::after{content:"";position:absolute;inset:-4px;border-r
 .menu-user .u-pil.aktif{background:#f6f2ec;cursor:default}
 .menu-user .u-cek{color:var(--sukses);font-weight:700}
 .menu-user .u-lain{display:block;border-top:1px solid var(--garis);margin-top:4px;border-radius:0 0 7px 7px}
+
+/* saran garansi (barang yang di riwayat pernah bergaransi, mis. SSD V-GeN) */
+#tautan a.saran-grs{border:1px dashed var(--aksen);color:var(--aksen);border-radius:12px;padding:1px 10px;font-weight:700;text-decoration:none;background:#fbf1ea}
+#tautan a.saran-grs:hover{background:#f6e3d7}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -1584,10 +1588,15 @@ function renderKartu(l, kosongTeks) {
   var sd = $('#salin-dicek');
   if (sd) sd.onclick = function () {
     salin(siap.map(function (b) { return teksSalin(S.detail[b.id]); }).join('\n\n'), siap.length + ' penerimaan disalin.');
-    bukaDialog('<header><b>Sudah disalin ✓</b></header><div class="isi"><p>' + siap.length + ' penerimaan sudah disalin. Tempel ke catatan/WA untuk admin barcode.</p><p class="muted small">Pindahkan ke tab <b>Beres</b> supaya daftar ini bersih? (belum dibuatkan barcode di aplikasi)</p></div>' +
-      '<footer><button class="btn" data-tutup>Nanti saja</button><button class="btn utama" id="pindah-beres">Pindahkan ke Beres</button></footer>');
-    $('#pindah-beres').onclick = function () {
-      tutupDialog();
+    // yang modalnya masih kosong (Fikri boleh Selesai tanpa harga) tidak ikut dipindah ke Beres — Beres tidak bisa diubah lagi
+    var kurang = siap.filter(function (b) { return (S.detail[b.id].items || []).some(function (it) { return !it.retur && !(it.modal > 0); }); });
+    var lengkap = siap.filter(function (b) { return kurang.indexOf(b) < 0; });
+    bukaDialog('<header><b>Sudah disalin ✓</b></header><div class="isi"><p>' + siap.length + ' penerimaan sudah disalin. Tempel ke catatan/WA untuk admin barcode.</p>' +
+      (kurang.length ? '<p class="small" style="color:var(--kuning-tua)">⚠ ' + kurang.length + ' penerimaan masih ada <b>modal?</b> (' + kurang.map(function (b) { return esc(b.pemasok); }).join(', ') + '). Isi dulu modalnya — yang ini tidak ikut dipindah ke Beres.</p>' : '') +
+      (lengkap.length ? '<p class="muted small">Pindahkan ' + (kurang.length ? lengkap.length + ' yang lengkap ' : '') + 'ke tab <b>Beres</b> supaya daftar ini bersih? (belum dibuatkan barcode di aplikasi)</p>' : '') + '</div>' +
+      '<footer><button class="btn" data-tutup>' + (lengkap.length ? 'Nanti saja' : 'Tutup') + '</button>' + (lengkap.length ? '<button class="btn utama" id="pindah-beres">Pindahkan ke Beres</button>' : '') + '</footer>');
+    if (lengkap.length) $('#pindah-beres').onclick = function () {
+      tutupDialog(); siap = lengkap;
       siap.forEach(function (b) { var d = S.detail[b.id]; masukAntrean({ fn: 'checkBatch', ref: b.id, payload: { id: b.id, pemasok: d.pemasok, items: d.items, dihapusHani: d.dihapusHani || [] }, label: b.pemasok }); });
       toast(siap.length + ' penerimaan dipindahkan ke Beres.');
     };
@@ -2267,7 +2276,10 @@ function segarTautan() {
   var d = $('#in-days'), k = $('#in-kondisi'), g = $('#in-garansi');
   if (d && !d.disabled) bag.push(e.days !== '' ? '<span class="lencana" data-t="days">' + esc(e.days) + ' Days<i data-x="days">✕</i></span>' : '<a href="#" data-t="days">+ Days</a>');
   if (k && !k.disabled) bag.push(e.kondisi.length ? '<span class="lencana" data-t="kondisi">' + esc(e.kondisi.join(', ')) + '<i data-x="kondisi">✕</i></span>' : '<a href="#" data-t="kondisi">+ Kondisi</a>');
-  if (g && !g.disabled) bag.push(e.garansi ? '<span class="lencana" data-t="garansi">' + esc(e.garansi) + '<i data-x="garansi">✕</i></span>' : '<a href="#" data-t="garansi">+ Garansi</a>');
+  var sg = e.garansi ? null : saranGaransi(e);
+  if (g && !g.disabled) bag.push(e.garansi ? '<span class="lencana" data-t="garansi">' + esc(e.garansi) + '<i data-x="garansi">✕</i></span>'
+    : sg ? '<a href="#" data-t="garansi" class="saran-grs" title="Riwayat: ' + sg[0] + ' dari ' + sg[1] + ' barang ini bergaransi — cek labelnya">🛡 Masih garansi?</a>'
+    : '<a href="#" data-t="garansi">+ Garansi</a>');
   el.innerHTML = bag.join('<span class="titik">·</span>');
   $$('[data-t]', el).forEach(function (t) {
     t.onclick = function (ev) {
@@ -2284,6 +2296,12 @@ function segarTautan() {
       if (t.dataset.t === 'garansi') bukaGaransi(t);
     };
   });
+}
+/** barang yang di riwayat pernah bergaransi (mis. SSD V-GeN) → [jumlah bergaransi, jumlah semua] */
+function saranGaransi(e) {
+  if (!e || !e.dasar) return null;
+  var x = ((S.boot && S.boot.garansiDasar) || {})[kunciDasar(e.dasar)];
+  return x && x[0] > 0 && x[0] / x[1] >= 0.1 ? x : null;
 }
 function bukaDays(tombol) {
   var pop = $('#pop-days'), inp = $('#days-in');
@@ -2587,14 +2605,15 @@ function segarKaki() {
   });
   var nilai = trm.reduce(function (s, x) { return s + x.qty * (x.modal || 0); }, 0);
   $('#tot').innerHTML = (tanpaRank && b.status !== 'DISETUJUI' ? '<span class="warn-modal" style="color:var(--merah)">⚠ ' + tanpaRank + ' RAM Server tanpa rank</span>' : '') +
-    (kosong && b.status !== 'DISETUJUI' ? '<span class="warn-modal">⚠ ' + kosong + ' modal belum diisi</span>' : '') + (items.length ? rp(nilai) : '');
+    (kosong && b.status !== 'DISETUJUI' ? '<span class="warn-modal">' + (owner() ? '⚠ ' + kosong + ' modal belum diisi' : kosong + ' modal kosong · Hani yang isi') + '</span>' : '') + (items.length ? rp(nilai) : '');
   $('#chips').innerHTML = ringkasKategori(items) +
     (rt.length ? '<span class="chip r"><b>' + rt.reduce(function (s, x) { return s + x.qty; }, 0) + '</b>Dikembalikan</span>' : '') +
     (b.status === 'DISETUJUI' ? '' : (nBaru ? '<span class="tag baru">🆕 ' + nBaru + ' nama baru</span>' : '') + (nHarga ? '<span class="tag harga">⚠ ' + nHarga + ' harga perlu dicek</span>' : ''));
   ['#act-kirim', '#act-setuju'].forEach(function (s) {
     var k = $(s); if (!k) return;
-    k.disabled = kosong > 0 || tanpaRank > 0;
-    k.title = tanpaRank ? tanpaRank + ' RAM Server belum ada rank-nya' : kosong ? 'Isi dulu ' + kosong + ' modal yang masih kosong (kotak kuning)' : '';
+    var wajibModal = s === '#act-setuju';           // Admin QC boleh Selesai tanpa modal — Hani yang melengkapi
+    k.disabled = (wajibModal && kosong > 0) || tanpaRank > 0;
+    k.title = tanpaRank ? tanpaRank + ' RAM Server belum ada rank-nya' : (wajibModal && kosong) ? 'Isi dulu ' + kosong + ' modal yang masih kosong (kotak kuning)' : '';
   });
 }
 
@@ -2731,6 +2750,12 @@ function simpanSekarang() {
     muatBatches(false);
   }).catch(gagal);
 }
+/** barang yang sedang diubah / diketik tapi belum diklik "Simpan baris" / "Tambah" → ikut disimpan dulu */
+function simpanIsianTerbuka() {
+  var e = S.edit; if (!e || !e.dasar || !S.batch || !bisaUbah()) return true;
+  tambahItem();
+  return !(S.edit && S.edit.dasar);          // masih ada isian merah → berhenti, biar dibetulkan dulu
+}
 function pasangAksi() {
   var on = function (id, fn) { var el = $('#' + id); if (el) el.onclick = fn; };
   on('act-simpan', function () {
@@ -2742,6 +2767,7 @@ function pasangAksi() {
   pasangUbah();
   $$('#editor [data-tutup-lihat]').forEach(function (x) { x.onclick = function () { if (owner()) tutupEditorHani(); else bukaBatch(batchKosong()); }; });
   on('act-kirim', function () {
+    if (!simpanIsianTerbuka()) return;
     if (S.batch.status === 'MENUNGGU') { if (S.autoTimer) kirimOtomatis(true); editorKosong('✓ Tersimpan.'); return; }
     if (!String(S.batch.pemasok.identitas).trim()) { toast('Isi nama pemasok dulu.', true); $('#p-id').focus(); return; }
     if (!S.batch.items.length) { toast('Belum ada barang.', true); return; }
@@ -2799,6 +2825,7 @@ function pasangAksi() {
   });
   on('act-lihat', function () { S.cetakBatch = S.batch.id; buka('cetak'); });
   on('act-dicek', function () {
+    if (!simpanIsianTerbuka()) return;
     var b = S.batch; if (!b.id) { toast('Belum tersimpan.', true); return; }
     var dc = dicek(); dc[b.id] = Date.now(); LS.set(KUNCI_DICEK, dc);
     simpanDetail(JSON.parse(JSON.stringify(b)));

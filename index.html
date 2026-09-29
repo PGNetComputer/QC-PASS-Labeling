@@ -1302,6 +1302,7 @@ function ringkas(b) {
            dibuatOleh: b.dibuatOleh, tanggalDisetujui: b.tanggalDisetujui, catatanHani: b.catatanHani || '', versi: b.versi, koreksi: jumlahKoreksi(b) };
 }
 function editorKosong(pesan) {
+  setTimeout(segarNav, 0);
   S.batch = null; S.tabBuka = owner() ? (S.filter || 'BELUM') : 'SEMUA'; if ($('#tabs-daftar')) renderDaftar();
   if (owner()) { $('#editor').innerHTML = ''; $('#editor').hidden = true; if (pesan) toast(pesan); return; }
   if (!S.boot || !S.boot.user) { $('#editor').innerHTML = ''; return; }
@@ -1719,11 +1720,11 @@ function renderRiwayatFikri(list, lokal) {
       (b.status === 'DISETUJUI' ? '<span class="beres-tag">✓ selesai</span>' : '') + '</div></div>';
   }).join('') : '<div class="kosong small">Belum ada yang ditulis.</div>');
   $$('.kk-f', el).forEach(function (k) {
-    k.onclick = function () { S.riwayatBuka = false; pilihBatch(k.dataset.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
+    k.onclick = function () { S.riwayatBuka = false; S.keRiwayat = true; pilihBatch(k.dataset.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
   });
   var pb = $('#plus-baru');
   pb.onclick = function (e) {
-    S.riwayatBuka = false;
+    S.riwayatBuka = false; setTimeout(segarNav, 0);
     var b = S.batch, kosong = !b || (!b.items.length && !b.id);   // form yang belum ada barangnya: kembali ke form itu
     if (e.target.classList.contains('plus-x') || kosong) { renderDaftar(); if (b && bisaUbah()) setTimeout(function () { var i = $('#p-id'); if (i && !i.closest('[hidden]')) i.focus(); else if ($('#in-nama')) $('#in-nama').focus(); }, 30); }
     else bukaBatch(batchKosong());
@@ -1733,7 +1734,7 @@ function renderRiwayatFikri(list, lokal) {
 }
 document.addEventListener('click', function (e) {
   var t = e.target.closest && e.target.closest('[data-riwayat]'); if (!t) return;
-  e.preventDefault(); S.riwayatBuka = !S.riwayatBuka; renderDaftar();
+  e.preventDefault(); S.riwayatBuka = !S.riwayatBuka; renderDaftar(); segarNav();
   if (S.riwayatBuka) setTimeout(function () { var el = $('#riwayat-fikri'); if (el && el.scrollIntoView) el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }, 30);
 });
 function tutupEditorHani() {
@@ -1806,7 +1807,7 @@ function bisaUbah() {
 function entryKosong() { return { kategori: '', dasar: '', health: '', days: '', kondisi: [], garansi: '', qty: 1, modal: '', baru: false }; }
 
 function bukaBatch(b) {
-  S.infoSimpan = '';
+  S.infoSimpan = ''; S.dariRiwayat = !!S.keRiwayat; S.keRiwayat = false; setTimeout(segarNav, 0);
   if (b.items && b.items.length && bolehUbah(b.status)) urutkanItems(b.items);   // draft lama ikut dirapikan urutannya
   S.pmRingkas = !!String(b.pemasok && b.pemasok.identitas || '').trim();
   S.batch = b; S.edit = entryKosong(); S.editIndex = -1; S.tabBuka = null; $('#editor').hidden = false; S.riwayatBuka = false;
@@ -2766,6 +2767,7 @@ function bukaRetur(tombol) {
 
 /* ---------- kondisi & garansi ---------- */
 function posisikan(pop, dekat) {
+  setTimeout(segarNav, 0);
   var r = dekat.getBoundingClientRect();
   pop.classList.add('on');
   var w = pop.offsetWidth, left = Math.min(r.left + window.scrollX, window.scrollX + document.documentElement.clientWidth - w - 12);
@@ -2867,6 +2869,7 @@ function bukaGaransi(tombol) {
 }
 document.addEventListener('click', function (e) {
   $$('.pop.on').forEach(function (p) { if (!p.contains(e.target)) p.classList.remove('on'); });
+  setTimeout(segarNav, 0);
 });
 
 /* ---------- simpan & aksi ---------- */
@@ -3012,10 +3015,41 @@ function pasangAksi() {
 
 /* ---------- dialog ---------- */
 function bukaDialog(html) {
+  setTimeout(segarNav, 0);
   $('#dialog').innerHTML = html; $('#bayang').classList.add('on');
   $$('[data-tutup]', $('#dialog')).forEach(function (b) { b.onclick = tutupDialog; });
 }
-function tutupDialog() { $('#bayang').classList.remove('on'); }
+function tutupDialog() { $('#bayang').classList.remove('on'); setTimeout(segarNav, 0); }
+
+/* ==================== TOMBOL KEMBALI HP ====================
+   Selama ada "lapisan" terbuka (penerimaan yang dibuka Hani, riwayat Fikri, dialog, pilihan kondisi/garansi),
+   satu langkah riwayat browser ditambahkan — jadi tombol kembali HP menutup lapisan itu, bukan keluar aplikasi. */
+var NAV = { dalam: false, abaikan: false };
+function adaLapisan() {
+  if ($('#bayang') && $('#bayang').classList.contains('on')) return true;
+  if ($$('.pop.on').length) return true;
+  if (!S.boot || !S.boot.user) return false;
+  if (owner()) return !!S.batch;
+  return !!(S.riwayatBuka || S.dariRiwayat);
+}
+function segarNav() {
+  try {
+    var ada = adaLapisan();
+    if (ada && !NAV.dalam) { history.pushState({ qc: 1 }, ''); NAV.dalam = true; }
+    else if (!ada && NAV.dalam) { NAV.dalam = false; NAV.abaikan = true; history.back(); }
+  } catch (e) {}
+}
+window.addEventListener('popstate', function () {
+  if (NAV.abaikan) { NAV.abaikan = false; return; }
+  NAV.dalam = false;
+  // tutup lapisan paling atas saja
+  if ($('#bayang').classList.contains('on')) { $('#bayang').classList.remove('on'); }
+  else if ($$('.pop.on').length) { $$('.pop.on').forEach(function (p) { p.classList.remove('on'); }); }
+  else if (S.boot && S.boot.user && owner() && S.batch) { tutupEditorHani(); }
+  else if (S.dariRiwayat) { S.dariRiwayat = false; bukaBatch(batchKosong()); S.riwayatBuka = true; renderDaftar(); }
+  else if (S.riwayatBuka) { S.riwayatBuka = false; renderDaftar(); }
+  setTimeout(segarNav, 0);            // masih ada lapisan di bawahnya (mis. dialog di atas penerimaan) → langkah baru
+});
 $('#bayang').addEventListener('mousedown', function (e) { if (e.target.id === 'bayang') tutupDialog(); });
 document.addEventListener('keydown', function (e) { if (e.key === 'Escape' && $('#bayang').classList.contains('on')) tutupDialog(); });
 

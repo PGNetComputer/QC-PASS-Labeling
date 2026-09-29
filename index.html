@@ -664,6 +664,16 @@ body.sibuk .userchip .av::after{content:"";position:absolute;inset:-4px;border-r
 .kp-hitung.semua{color:var(--sukses);font-weight:700}
 .kp-brs.tercek .kp-q{color:#c9c3b8}
 .retur-jual-tag{font-size:11.5px;color:#94443a;background:#f7e6e2;border-radius:8px;padding:1px 8px;margin-right:8px;white-space:nowrap}
+
+/* Hani: judul per jenis barang dengan hitungan unit */
+.kp-klp{display:flex;align-items:center;gap:8px;margin:12px 0 2px;padding-top:10px;border-top:1px solid var(--garis2,#efebe3);font-size:13px;font-weight:700;color:var(--abu)}
+.kp-judul + .kp-klp{border-top:0;margin-top:4px;padding-top:0}
+.kp-klp .nm{flex:1;color:var(--tinta)}
+.kp-klp .angka{font-weight:600;font-variant-numeric:tabular-nums}
+.kp-klp .angka.penuh{color:var(--sukses);font-weight:800}
+.kp-klp.r .nm,.kp-klp.r .angka{color:#94443a}
+.kp-prog{height:3px;background:#efe9df;border-radius:3px;overflow:hidden;margin:4px 0 4px}
+.kp-prog i{display:block;height:100%;background:var(--sukses);transition:width .3s}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -1261,8 +1271,10 @@ function jalankanAntrean() {
         var sub = $('#ed-sub'); if (sub) sub.textContent = b2.id + ' · dibuat ' + b2.dibuat;
       }
     }
-    S.batches = S.batches.filter(function (x) { return x.id !== b2.id; });
-    S.batches.unshift(ringkas(b2)); simpanDetail(b2);
+    // posisi kartu tetap di tempatnya (tidak loncat ke bawah lalu ke atas lagi)
+    var posB = -1; S.batches.forEach(function (x, i) { if (x.id === b2.id) posB = i; });
+    if (posB >= 0) S.batches[posB] = ringkas(b2); else S.batches.unshift(ringkas(b2));
+    simpanDetail(b2);
     var nama = rangkaiPemasok(b2.pemasok);
     if (job.fn === 'submitBatch') toast('✓ Selesai: ' + nama + ' — sudah bisa dicek Hani');
     if (job.fn === 'returnBatch') toast('✓ Dikembalikan ke Admin QC: ' + nama);
@@ -1739,6 +1751,8 @@ document.addEventListener('click', function (e) {
 });
 function tutupEditorHani() {
   if (S.autoTimer) kirimOtomatis(true);
+  // kartu langsung menampilkan isi terbaru (tidak menunggu server)
+  if (S.batch && S.batch.id && bisaUbah()) { var sd = JSON.parse(JSON.stringify(S.batch)); delete sd._lokal; simpanDetail(sd); }
   editorKosong();
 }
 function tambahHari(ymd, n) { var d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
@@ -1759,7 +1773,8 @@ function samaAsal(it) { return it.asal && it.asal.nama === it.nama && Number(it.
 function pilihBatch(id) {
   if (S.simpanTimer) { clearTimeout(S.simpanTimer); simpanSekarang(); }
   var j = jobUntuk(id);
-  if (j && !j.gagal) { toast('Sedang dikirim di latar belakang, tunggu sebentar…'); return; }
+  // yang sedang menunggu hanya "simpan": tetap boleh dibuka & diubah lagi — dibuka dari salinan di browser, simpanan berikutnya ikut antre
+  if (j && !j.gagal && j.fn !== 'saveBatch') { toast('Sedang dikirim di latar belakang, tunggu sebentar…'); return; }
   if (j && j.gagal) simpanAntrean(antrean().filter(function (x) { return x.jid !== j.jid; }));
   if (idServer(id) && idServer(id) !== id) id = idServer(id);
   var lokal = LS.get(awalanDraft() + id) || LS.get(awalanDraft() + (j ? j.ref : ''));
@@ -2532,8 +2547,20 @@ function renderKeep() {
   var h = '<div class="kp-judul">' + esc(rangkaiPemasok(b.pemasok) || '(tanpa nama)') + '</div>';
   var cekB = cekBaris(b);
   var urut = items.map(function (it, i) { return i; }).sort(function (a, c) { return (items[a].retur ? 1 : 0) - (items[c].retur ? 1 : 0); });
+  // judul per jenis barang: "Processor Intel · 7 / 17 unit" + garis kemajuan (dihitung dari qty yang sudah dicentang)
+  var klpDari = function (it) { return it.retur ? '↩ Dikembalikan' : labelKategori(it.kategori || (S.masterIdx[String(it.dasar).toLowerCase()] || {}).k); };
+  var klp = {};
+  items.forEach(function (it) { var k = klpDari(it), o = (klp[k] = klp[k] || { t: 0, c: 0 }); o.t += Number(it.qty) || 0; if (cekB[it.nama]) o.c += Number(it.qty) || 0; });
+  var klpTadi = null;
   urut.forEach(function (i) {
     var it = items[i], aktif = ubah && S.keepAktif === i;
+    var kk = klpDari(it);
+    if (kk !== klpTadi) {
+      klpTadi = kk; var o = klp[kk], rt = !!it.retur, penuh = o.c >= o.t && o.t > 0;
+      h += '<div class="kp-klp' + (rt ? ' r' : '') + '"><span class="nm">' + esc(kk) + '</span><span class="angka' + (ubah && !rt && penuh ? ' penuh' : '') + '">' +
+        (ubah && !rt ? (penuh ? '✓ ' : '') + o.c + ' / ' + o.t + ' unit' : o.t + ' unit') + '</span></div>' +
+        (ubah && !rt ? '<div class="kp-prog"><i style="width:' + Math.round(o.c / Math.max(1, o.t) * 100) + '%"></i></div>' : '');
+    }
     var ekor = it.retur ? '<span class="kp-r">' + esc(String(it.alasan || 'RETUR').toUpperCase()) + '</span>' : (it.modal > 0 ? angkaTitik(it.modal) : '<span class="kk-kosong">modal?</span>');
     if (!aktif) {
       var sdh = ubah && !!cekB[it.nama];
@@ -2550,9 +2577,10 @@ function renderKeep() {
   (b.dihapusHani || []).forEach(function (x) { h += '<div class="kp-brs dihapus"><s>' + esc(x.nama) + ' (' + x.qty + ') ' + (x.modal ? angkaTitik(x.modal) : '') + '</s> <span class="koreksi-tag">dihapus</span></div>'; });
   if (!items.length) h += '<div class="muted small" style="padding:6px 0">Belum ada barang.</div>';
   if (ubah) {
-    var nC = items.filter(function (x) { return cekB[x.nama]; }).length;
+    var uT = 0, uC = 0;
+    items.forEach(function (x) { if (x.retur) return; uT += Number(x.qty) || 0; if (cekB[x.nama]) uC += Number(x.qty) || 0; });
     h += '<div class="kp-tambah-baris"><div class="kp-tambah" id="kp-tambah">+ Tambah barang</div>' +
-      (items.length ? '<span class="kp-hitung' + (nC === items.length ? ' semua' : '') + '">' + (nC === items.length ? '✓ semua baris dicek' : nC + ' / ' + items.length + ' dicek') + '</span>' : '') + '</div>';
+      (uT ? '<span class="kp-hitung' + (uC >= uT ? ' semua' : '') + '">' + (uC >= uT ? '✓ semua ' + uT + ' unit dicek' : uC + ' / ' + uT + ' unit dicek') + '</span>' : '') + '</div>';
   }
   el.innerHTML = h;
   el.classList.toggle('lagi-ubah', S.editIndex >= 0);

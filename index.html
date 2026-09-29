@@ -674,6 +674,14 @@ body.sibuk .userchip .av::after{content:"";position:absolute;inset:-4px;border-r
 .kp-klp.r .nm,.kp-klp.r .angka{color:#94443a}
 .kp-prog{height:3px;background:#efe9df;border-radius:3px;overflow:hidden;margin:4px 0 4px}
 .kp-prog i{display:block;height:100%;background:var(--sukses);transition:width .3s}
+
+/* judul jenis barang menempel di atas saat menggulir (seperti judul tanggal di WhatsApp) */
+.kp-kepala{position:sticky;top:var(--tinggi-atas,56px);z-index:5;background:var(--kartu);margin:0 -18px;padding:0 18px 2px}
+.kp-kepala .kp-klp{margin-top:0}
+.kp-bagian{margin-top:12px;border-top:1px solid var(--garis2,#efebe3)}
+.kp-judul + .kp-bagian{margin-top:4px;border-top:0}
+.kp-bagian > .kp-kepala .kp-klp{border-top:0;padding-top:10px;margin-top:0}
+.kp-kepala.nempel{box-shadow:0 6px 8px -8px rgba(0,0,0,.28);border-bottom:1px solid var(--garis2,#efebe3)}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -2538,7 +2546,13 @@ function tandaBaris(b, nama, on) {
   Object.keys(m).forEach(function (k) { var t = Object.keys(m[k]).map(function (n) { return m[k][n]; }); if (!t.length || Math.max.apply(null, t) < batas) delete m[k]; });
   LS.set(KUNCI_CEKBRS, m);
 }
+function aturTinggiAtas() {
+  var t = document.querySelector('header.top'); if (!t) return;
+  document.documentElement.style.setProperty('--tinggi-atas', t.offsetHeight + 'px');
+}
+window.addEventListener('resize', aturTinggiAtas);
 function renderKeep() {
+  aturTinggiAtas();
   var el = $('#keep-list'); if (!el || !S.batch) return;
   var b = S.batch, ubah = bisaUbah(), items = b.items;
   // form ubah ikut pindah ke bawah baris yang sedang diubah (ala Keep) — dikeluarkan dulu sebelum daftar digambar ulang
@@ -2556,10 +2570,11 @@ function renderKeep() {
     var it = items[i], aktif = ubah && S.keepAktif === i;
     var kk = klpDari(it);
     if (kk !== klpTadi) {
+      if (klpTadi !== null) h += '</div>';                    // tutup kelompok sebelumnya
       klpTadi = kk; var o = klp[kk], rt = !!it.retur, penuh = o.c >= o.t && o.t > 0;
-      h += '<div class="kp-klp' + (rt ? ' r' : '') + '"><span class="nm">' + esc(kk) + '</span><span class="angka' + (ubah && !rt && penuh ? ' penuh' : '') + '">' +
+      h += '<div class="kp-bagian"><div class="kp-kepala">' + '<div class="kp-klp' + (rt ? ' r' : '') + '"><span class="nm">' + esc(kk) + '</span><span class="angka' + (ubah && !rt && penuh ? ' penuh' : '') + '">' +
         (ubah && !rt ? (penuh ? '✓ ' : '') + o.c + ' / ' + o.t + ' unit' : o.t + ' unit') + '</span></div>' +
-        (ubah && !rt ? '<div class="kp-prog"><i style="width:' + Math.round(o.c / Math.max(1, o.t) * 100) + '%"></i></div>' : '');
+        (ubah && !rt ? '<div class="kp-prog"><i style="width:' + Math.round(o.c / Math.max(1, o.t) * 100) + '%"></i></div>' : '') + '</div>';
     }
     var ekor = it.retur ? '<span class="kp-r">' + esc(String(it.alasan || 'RETUR').toUpperCase()) + '</span>' : (it.modal > 0 ? angkaTitik(it.modal) : '<span class="kk-kosong">modal?</span>');
     if (!aktif) {
@@ -2574,6 +2589,7 @@ function renderKeep() {
       (it.retur ? '' : ' modal <input class="kp-in kp-mod" inputmode="numeric" value="' + (it.modal > 0 ? angkaTitik(it.modal) : '') + '" placeholder="isi">') +
       '<a href="#" class="kp-hapus" data-hapus-kp="' + i + '">Hapus</a></div>' + tandaKoreksi(it) + '</div>';
   });
+  if (klpTadi !== null) h += '</div>';
   (b.dihapusHani || []).forEach(function (x) { h += '<div class="kp-brs dihapus"><s>' + esc(x.nama) + ' (' + x.qty + ') ' + (x.modal ? angkaTitik(x.modal) : '') + '</s> <span class="koreksi-tag">dihapus</span></div>'; });
   if (!items.length) h += '<div class="muted small" style="padding:6px 0">Belum ada barang.</div>';
   if (ubah) {
@@ -3488,6 +3504,21 @@ window.__appReboot = function () {
 };
 window.addEventListener('beforeunload', function () { if (S.simpanTimer) simpanSekarang(); else simpanLokal(); });
 mulai();
+})();
+
+/* bayangan tipis di bawah judul jenis barang yang sedang menempel */
+(function () {
+  var raf = 0;
+  window.addEventListener('scroll', function () {
+    cancelAnimationFrame(raf);
+    raf = requestAnimationFrame(function () {
+      var t = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--tinggi-atas')) || 56;
+      Array.prototype.forEach.call(document.querySelectorAll('.kp-kepala'), function (k) {
+        var r = k.getBoundingClientRect(), p = k.parentNode.getBoundingClientRect();
+        k.classList.toggle('nempel', r.top <= t + 1 && p.top < t - 1);
+      });
+    });
+  }, { passive: true });
 })();
 </script>
 <script>if ('serviceWorker' in navigator && !/googleusercontent/.test(location.hostname)) navigator.serviceWorker.register('sw.js').catch(function () {});</script>

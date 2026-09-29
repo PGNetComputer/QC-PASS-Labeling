@@ -635,6 +635,35 @@ body.sibuk .userchip .av::after{content:"";position:absolute;inset:-4px;border-r
 /* saran garansi (barang yang di riwayat pernah bergaransi, mis. SSD V-GeN) */
 #tautan a.saran-grs{border:1px dashed var(--aksen);color:var(--aksen);border-radius:12px;padding:1px 10px;font-weight:700;text-decoration:none;background:#fbf1ea}
 #tautan a.saran-grs:hover{background:#f6e3d7}
+
+/* Hani: form ubah muncul tepat di bawah baris yang diubah (ala Keep) */
+.keep-list .baris-tambah.di-baris{border:1px solid #ecdccb!important;border-radius:10px;background:#faf6f0;margin:4px -10px 8px;padding:6px 10px 8px}
+.keep-list .baris-tambah.di-baris:hover{background:#faf6f0}
+.baris-tambah.di-baris .plus-tambah{display:none}
+.keep-list.lagi-ubah .kp-brs:not(.diubah):not(.aktif):not(.sorot){opacity:.45}
+.kp-brs.sorot{background:#fbe9dd;box-shadow:inset 3px 0 0 var(--aksen);padding-left:8px;transition:background .8s}
+/* kondisi: kotak cari / tulis sendiri di paling atas */
+.pop .kon-cari{width:100%;margin-bottom:8px}
+.pop .kon-pakai{display:block;color:var(--aksen);font-weight:700;font-size:13px;background:#fbf1ea;border-radius:7px;padding:6px 9px;margin-bottom:6px;text-decoration:none}
+
+/* tab Hani: Belum dicek | Sudah dicek | Selesai */
+.tab[data-t="DICEK"] .n{background:#f6eee6;color:#8a5a3b}
+.kk.pindah{opacity:.25;transform:scale(.98);transition:opacity .25s,transform .25s}
+@media (max-width:420px){.tabs-daftar{gap:14px}.tabs-daftar .tab{font-size:13px}}
+
+/* Hani: centang per baris di kanan */
+.kp-brs.ada-cek{display:flex;gap:10px;align-items:flex-start}
+.kp-brs .kp-isi{flex:1;min-width:0}
+.kp-cek{flex:none;width:26px;height:26px;margin-top:1px;border-radius:50%;border:1.5px solid #cfc6b8;background:var(--kartu);color:#fff;font-weight:800;font-size:14px;line-height:1;cursor:pointer;display:inline-flex;align-items:center;justify-content:center;padding:0;font-family:inherit}
+.kp-cek:hover{border-color:var(--sukses)}
+.kp-brs.tercek .kp-cek{background:var(--sukses);border-color:var(--sukses)}
+.kp-brs.tercek .kp-isi{color:var(--abu-2)}
+.kp-tambah-baris{display:flex;align-items:center;gap:10px}
+.kp-tambah-baris .kp-tambah{flex:1}
+.kp-hitung{font-size:12px;color:var(--abu-2);padding-top:6px;white-space:nowrap}
+.kp-hitung.semua{color:var(--sukses);font-weight:700}
+.kp-brs.tercek .kp-q{color:#c9c3b8}
+.retur-jual-tag{font-size:11.5px;color:#94443a;background:#f7e6e2;border-radius:8px;padding:1px 8px;margin-right:8px;white-space:nowrap}
 </style></head><body>
 <header class="top"><div class="top-isi">
   <div class="top-kiri"></div>
@@ -840,19 +869,26 @@ function kunciUrut_(it) {
       a = Number(m[2].charAt(0)); b = Number(m[1]); c = Number(m[2]); d = m[3].toUpperCase();
     } else { a = 999; d = n.toLowerCase(); }
   } else if (isStorage(k)) {
-    if ((m = n.match(/(\d+(?:\.\d+)?)\s*(GB|TB)\b/i))) a = Number(m[1]) * (m[2].toUpperCase() === 'TB' ? 1000 : 1);
-    b = it.health === '' || it.health === undefined || it.health === null ? 101 : Number(it.health);
+    // jenis (SSD NVMe / SSD NVMe 2242 / …) → kapasitas → merek & seri → health: 2242 tidak terpencar, merek sama berkumpul
+    var p = n.indexOf(' - '), kiri = p >= 0 ? n.slice(0, p) : n, kanan = p >= 0 ? n.slice(p + 3) : '';
+    if ((m = kiri.match(/(\d+(?:\.\d+)?)\s*(GB|TB)\b/i))) a = Number(m[1]) * (m[2].toUpperCase() === 'TB' ? 1000 : 1);
+    var jenis = kiri.replace(/\([^)]*\)/g, ' ').replace(/(\d+(?:\.\d+)?)\s*(GB|TB)\b/ig, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    var merek = kanan.replace(/\([^)]*\)/g, ' ').replace(/\s+/g, ' ').trim().toLowerCase();
+    var hl = it.health === '' || it.health === undefined || it.health === null ? 101 : Number(it.health);
+    return [kat, jenis, a, merek, hl];
   } else if (/^(RAM|CAMM)/.test(k)) {
     if ((m = n.match(/DDR(\d)/i))) a = Number(m[1]);
     if ((m = n.match(/(\d+)\s*GB/i))) b = Number(m[1]);
     if ((m = n.match(/GB\s+(\d{3,5})\b/i))) c = Number(m[1]);
+    var pr = n.indexOf(' - ');
+    return [kat, a, b, c, pr >= 0 ? n.slice(pr + 3).toLowerCase() : n.toLowerCase()];
   } else { d = n.toLowerCase(); }
   return [kat, a, b, c, d];
 }
 function urutkanItems(items) {
   var k = items.map(function (it, i) { return { it: it, k: kunciUrut_(it), i: i }; });
   k.sort(function (x, y) {
-    for (var j = 0; j < 5; j++) { if (x.k[j] < y.k[j]) return -1; if (x.k[j] > y.k[j]) return 1; }
+    for (var j = 0; j < Math.max(x.k.length, y.k.length); j++) { if (x.k[j] < y.k[j]) return -1; if (x.k[j] > y.k[j]) return 1; }
     return x.i - y.i;
   });
   for (var i = 0; i < k.length; i++) items[i] = k[i].it;
@@ -885,6 +921,18 @@ function daysMasukNama(d) {
 }
 
 /** Rangkai nama lengkap dari nama dasar + health + days + kondisi + garansi */
+/** kondisi baku (nama lama diganti nama baru) + kondisi tulisan sendiri; tanpa kurung, tanpa dobel, maks 60 huruf */
+function rapikanKondisi(daftar) {
+  var hasil = [];
+  (daftar || []).forEach(function (k) {
+    k = String(k || '').replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); if (!k) return;
+    k = ATURAN.KONDISI_LAMA[k] || k;
+    var baku = ATURAN.KONDISI.filter(function (b) { return b.toLowerCase() === k.toLowerCase(); })[0];
+    if (baku) k = baku;
+    if (hasil.indexOf(k) < 0) hasil.push(k);
+  });
+  return hasil;
+}
 function rangkaiNama(it) {
   var dasar = String(it.dasar || '').replace(/\s+/g, ' ').trim();
   var sisip = '';
@@ -901,6 +949,8 @@ function rangkaiNama(it) {
     if (kon.indexOf(k) < 0) return;
     nama += ATURAN.KONDISI_TANPA_KURUNG.indexOf(k) >= 0 ? ' ' + k : ' (' + k + ')';
   });
+  // kondisi tulisan sendiri (mis. "1 slot VGA tidak hidup, 2 normal") — sesudah kondisi baku
+  kon.forEach(function (k) { if (ATURAN.KONDISI.indexOf(k) < 0) nama += ' (' + k + ')'; });
   if (it.garansi) nama += ' (' + it.garansi + ')';
   return nama;
 }
@@ -1012,6 +1062,7 @@ function kunciDasar(nama) {
        .replace(/\((baru[^)]*|bnob|fisik[^)]*|gompal|lecet|baret|pin [^)]*|capacitors? copot|copot capacitors?|kuningan[^)]*|tanpa [^)]*|label sobek|hologram[^)]*|klaim|claim|ram murah|murah|blue screen|nyala biru|audio error|vga error|lan [^)]*|minus sound|box kurang[^)]*|dus [^)]*|penyok|kw|\+[^)]*|adaptor[^)]*|adapter[^)]*|converter[^)]*|(tdk|tidak) lifetime[^)]*|lifetime[^)]*|h?a?nya bs[^)]*|gak bisa[^)]*|pake vga[^)]*|hanya 1 slot ram|wajib vga[^)]*)\)/gi, ' ')
        .replace(/\+\s*fan\b/gi, ' ')
        .replace(/\bbox\b(\s+n\b)?/gi, ' ');
+  s = s.replace(/\([^)]*\b(tidak|tdk|normal|mati|hidup|rusak|error|slot)\b[^)]*\)/gi, ' ');   // kondisi tulisan sendiri
   s = s.toLowerCase().replace(/sk[\s-]*hynix/g, 'sk hynix');
   s = s.replace(/\s+-\s*|\s*-\s+/g, ' - ').replace(/\s+/g, ' ').trim();
   return s;
@@ -1215,7 +1266,7 @@ function jalankanAntrean() {
     var nama = rangkaiPemasok(b2.pemasok);
     if (job.fn === 'submitBatch') toast('✓ Selesai: ' + nama + ' — sudah bisa dicek Hani');
     if (job.fn === 'returnBatch') toast('✓ Dikembalikan ke Admin QC: ' + nama);
-    if (job.fn === 'approveBatch') toast('✓ Beres: ' + nama + ' — ' + b2.items.length + ' barcode dibuat');
+    if (job.fn === 'approveBatch') toast('✓ Selesai: ' + nama + ' — ' + b2.items.length + ' barcode dibuat');
     if (job.fn === 'checkBatch') { var dc = dicek(); delete dc[b2.id]; LS.set(KUNCI_DICEK, dc); }
     sedangKirim = false; S.jobJalan = null; renderDaftar(); updateBadge(); jalankanAntrean();
   }, function (e) {
@@ -1494,9 +1545,11 @@ function renderDaftar() {
   var tampil = semua.filter(function (b) { return b.status !== 'DISETUJUI' || !batas || (b.tanggalDisetujui || '') >= batas; });
   // cukup dua tab: yang masih diisi & yang sudah ditandai selesai sama-sama "Belum dicek"
   // Hani: Belum dicek / Beres. Fikri: cukup satu daftar "Riwayat" — yang sudah beres ditandai ✓ di dalamnya
-  var grupTab = function (st) { return !owner() ? 'SEMUA' : st === 'DISETUJUI' ? 'DISETUJUI' : 'BELUM'; };
-  var jml = {}; tampil.forEach(function (b) { var g = grupTab(b.status); jml[g] = (jml[g] || 0) + 1; });
-  var tabs = owner() ? [['BELUM', 'Belum dicek'], ['DISETUJUI', '✓ Beres']] : [['SEMUA', 'Riwayat']];
+  // Hani: Belum dicek → (centang "dicek") → Sudah dicek → (Salin & pindahkan) → Selesai
+  var dcT = dicek();
+  var grupTab = function (b) { return !owner() ? 'SEMUA' : b.status === 'DISETUJUI' ? 'DISETUJUI' : dcT[b.id] ? 'DICEK' : 'BELUM'; };
+  var jml = {}; tampil.forEach(function (b) { var g = grupTab(b); jml[g] = (jml[g] || 0) + 1; });
+  var tabs = owner() ? [['BELUM', 'Belum dicek'], ['DICEK', 'Sudah dicek'], ['DISETUJUI', 'Selesai']] : [['SEMUA', 'Riwayat']];
   $('#tabs-daftar').innerHTML = tabs.map(function (t) {
     return '<button class="tab' + (t[0] === 'BELUM' ? ' k' : '') + (S.tabBuka === t[0] ? ' on' : '') + '" data-t="' + t[0] + '">' + t[1] +
       '<span class="n">' + (jml[t[0]] || 0) + '</span><span class="panah">' + (S.tabBuka === t[0] ? '▴' : '▾') + '</span></button>';
@@ -1513,8 +1566,8 @@ function renderDaftar() {
       renderDaftar();
     };
   });
-  var l = S.tabBuka ? tampil.filter(function (b) { return grupTab(b.status) === S.tabBuka; }) : [];
-  var kosongTeks = { SEMUA: 'Belum ada yang ditulis.', BELUM: 'Semua sudah dicek.', DISETUJUI: owner() ? 'Belum ada yang beres.' : 'Belum ada yang beres 7 hari terakhir.' };
+  var l = S.tabBuka ? tampil.filter(function (b) { return grupTab(b) === S.tabBuka; }) : [];
+  var kosongTeks = { SEMUA: 'Belum ada yang ditulis.', BELUM: 'Semua sudah dicek.', DICEK: 'Belum ada yang dicek. Centang "dicek" di tab Belum dicek.', DISETUJUI: owner() ? 'Belum ada yang selesai.' : 'Belum ada yang selesai 7 hari terakhir.' };
   $('#panel-daftar').classList.toggle('mode-kartu', owner());
   if (owner()) { $('#panel-daftar').hidden = !S.tabBuka; renderKartu(l.slice().reverse(), kosongTeks[S.tabBuka] || ''); return; }
   // Fikri: tidak ada tab — riwayat berupa kartu di bawah form, dibuka lewat ikon 🕘 di kartu "Penerimaan baru"
@@ -1534,7 +1587,7 @@ function renderDaftar() {
         (j && !j.gagal ? '<span class="muted small">' + lbl + '</span>' : '') +
         (j && j.gagal ? '<span class="small" style="color:var(--merah)" title="' + esc(j.gagal) + '">✕ gagal</span>' : '') +
         (b.catatanHani && b.status === 'DRAFT' ? '<span class="small" style="color:var(--kuning-tua)" title="Dikembalikan Hani — ada catatan">⚑</span>' : '') +
-        tandaK + '<span class="unit">' + b.qty + ' unit</span>' + (b.status === 'DISETUJUI' ? '<span class="beres-tag" title="Sudah dicek Hani — tidak bisa diubah lagi">✓ beres</span>' : '') + '</li>';
+        tandaK + '<span class="unit">' + b.qty + ' unit</span>' + (b.status === 'DISETUJUI' ? '<span class="beres-tag" title="Sudah dicek Hani — tidak bisa diubah lagi">✓ selesai</span>' : '') + '</li>';
     }
     return '<li class="' + on + '" data-id="' + esc(b.id) + '"><div class="row"><span class="nm grow">' + esc(b.pemasok || '(tanpa nama)') + '</span>' + tandaK + '<span class="st ' + b.status + '">' + lbl + '</span></div>' +
       '<div class="muted small">' + esc(b.sumber) + ' · ' + b.baris + ' baris · ' + b.qty + ' unit · ' + rp(b.nilai) + (b.dibuatOleh ? ' · ' + esc(b.dibuatOleh) : '') + '</div>' +
@@ -1548,9 +1601,29 @@ var KUNCI_DICEK = 'qc_dicek_v1';
 function dicek() { if (!S.dicek) S.dicek = LS.get(KUNCI_DICEK) || {}; return S.dicek; }
 function angkaTitik(n) { return new Intl.NumberFormat('id-ID').format(Math.round(Number(n) || 0)); }
 /** format teks seperti catatan Keep: *PEMASOK* lalu "nama (qty) modal" per baris */
+/** daftar barang untuk dikirim ke supplier: "nama (qty) modal" per baris, urut seperti di layar */
+function teksSupplier(b) { return teksSalin(b).split('\n').slice(1).join('\n'); }
+var IKON_SALIN = '<svg viewBox="0 0 24 24" width="17" height="17"><rect x="8" y="8" width="12" height="12" rx="2" fill="none" stroke="currentColor" stroke-width="2"/><path d="M16 8V5a1 1 0 0 0-1-1H5a1 1 0 0 0-1 1v10a1 1 0 0 0 1 1h3" fill="none" stroke="currentColor" stroke-width="2"/></svg>';
+/** "SHOPEE / nama pembeli / RETURN" atau "TOKOPEDIA / …" = unit retur penjualan (pembeli mengembalikan) → tanpa barcode */
+function jualRetur(pemasok) {
+  var t = typeof pemasok === 'string' ? pemasok : rangkaiPemasok(pemasok || {});
+  return /^\s*(SHOPEE|TOKOPEDIA)\b/i.test(t);
+}
+function selesaiRetur(b, dariEditor) {
+  bukaDialog('<header><b>Langsung selesai</b></header><div class="isi"><p><b>' + esc(rangkaiPemasok(b.pemasok)) + '</b> adalah retur penjualan.</p>' +
+    '<p class="muted small">Dipindah ke tab <b>Selesai</b> tanpa dibuatkan barcode. Setelah itu tidak bisa diubah lagi.</p></div>' +
+    '<footer><button class="btn" data-tutup>Batal</button><button class="btn utama" id="retur-selesai-ok">✓ Selesai</button></footer>');
+  $('#retur-selesai-ok').onclick = function () {
+    tutupDialog(); clearTimeout(S.simpanTimer); clearTimeout(S.autoTimer);
+    var d = dariEditor ? JSON.parse(JSON.stringify(b)) : b;
+    masukAntrean({ fn: 'checkBatch', ref: d.id, payload: { id: d.id, pemasok: d.pemasok, items: d.items, dihapusHani: d.dihapusHani || [] }, label: rangkaiPemasok(d.pemasok) });
+    if (dariEditor) editorKosong();
+    toast('✓ Dipindah ke Selesai (tanpa barcode).'); renderDaftar(); updateBadge();
+  };
+}
 function teksSalin(b) {
   var baris = ['*' + rangkaiPemasok(b.pemasok) + '*'];
-  (b.items || []).forEach(function (it) {
+  urutkanItems((b.items || []).slice()).forEach(function (it) {
     if (it.retur) baris.push(it.nama + ' (' + it.qty + ') ' + String(it.alasan || 'RETUR').toUpperCase());
     else baris.push(it.nama + ' (' + it.qty + ') ' + (it.modal > 0 ? angkaTitik(it.modal) : ''));
   });
@@ -1560,11 +1633,11 @@ function renderKartu(l, kosongTeks) {
   var dc = dicek(), bisaCek = S.tabBuka !== 'DISETUJUI';
   var siap = l.filter(function (b) { return dc[b.id] && S.detail && S.detail[b.id]; });
   var h = '';
-  if (l.length && bisaCek) h += '<li class="kk-alat"><span class="grow muted small">' + siap.length + ' dari ' + l.length + ' sudah dicek</span>' +
+  if (l.length && S.tabBuka === 'DICEK') h += '<li class="kk-alat"><span class="grow muted small">' + l.length + ' sudah dicek, siap disalin</span>' +
     '<button class="salin-kecil" id="salin-dicek" title="Salin yang sudah dicek"' + (siap.length ? '' : ' disabled') + '>⧉ Salin' + (siap.length ? ' ' + siap.length : '') + '</button></li>';
   h += '<li class="kk-grid">' + (l.length ? l.map(function (b) {
     var d = S.detail && S.detail[b.id], j = b._job;
-    var isi = d ? (d.items || []).map(function (it) {
+    var isi = d ? urutkanItems((d.items || []).slice()).map(function (it) {
       return '<div class="kk-b' + (it.retur ? ' retur' : '') + ((it.asal || it.olehHani) ? ' dikoreksi' : '') + '">' + esc(it.nama) + ' <span class="kk-q">(' + it.qty + ')</span> ' +
         (it.retur ? '<span class="kk-r">' + esc(String(it.alasan || 'RETUR').toUpperCase()) + '</span>' : (it.modal > 0 ? '<span class="kk-m">' + angkaTitik(it.modal) + '</span>' : '<span class="kk-kosong">modal?</span>')) + '</div>';
     }).join('') : '<div class="muted small">memuat…</div>';
@@ -1572,7 +1645,8 @@ function renderKartu(l, kosongTeks) {
     return '<div class="kk' + (dc[b.id] ? ' dicek' : '') + '" data-id="' + esc(b.id) + '">' +
       '<div class="kk-judul">' + esc(b.pemasok || '(tanpa nama)') + '</div>' + isi +
       '<div class="kk-kaki"><span class="muted small grow">' + (b.status === 'DRAFT' ? '<span class="kk-diisi">✏ masih diisi</span> ' : '') + (nK ? '✎ ' + nK + ' dibetulkan' : '') + (j && !j.gagal ? ' ⏳' : '') + '</span>' +
-      (bisaCek ? '<label class="kk-cek" title="Tandai sudah dicek"><input type="checkbox" data-cek="' + esc(b.id) + '"' + (dc[b.id] ? ' checked' : '') + '> dicek</label>' : '') +
+      (bisaCek && jualRetur(b.pemasok) ? '<span class="retur-jual-tag">retur penjualan · tanpa barcode</span><button class="salin-kecil" data-selesai-retur="' + esc(b.id) + '">✓ Selesai</button>'
+        : bisaCek ? '<label class="kk-cek" title="Tandai sudah dicek"><input type="checkbox" data-cek="' + esc(b.id) + '"' + (dc[b.id] ? ' checked' : '') + '> dicek</label>' : '') +
       '</div></div>';
   }).join('') : '<div class="kosong small">' + esc(kosongTeks) + '</div>') + '</li>';
   $('#list-batch').innerHTML = h;
@@ -1580,10 +1654,18 @@ function renderKartu(l, kosongTeks) {
     k.onclick = function (e) { if (e.target.closest('input,label,button')) return; pilihBatch(k.dataset.id); };
   });
   $$('#list-batch [data-cek]').forEach(function (c) {
-    c.onchange = function () { var dc2 = dicek(); if (c.checked) dc2[c.dataset.cek] = Date.now(); else delete dc2[c.dataset.cek]; LS.set(KUNCI_DICEK, dc2); renderDaftar(); };
+    c.onchange = function () {
+      var dc2 = dicek(); if (c.checked) dc2[c.dataset.cek] = Date.now(); else delete dc2[c.dataset.cek]; LS.set(KUNCI_DICEK, dc2);
+      // kartu pindah tab: pudar sebentar dulu supaya kelihatan ke mana perginya
+      var k = c.closest('.kk'); if (k) k.classList.add('pindah');
+      setTimeout(function () { renderDaftar(); toast(c.checked ? '✓ Pindah ke Sudah dicek' : 'Kembali ke Belum dicek'); }, 250);
+    };
   });
   $$('#list-batch [data-salin1]').forEach(function (bt) {
     bt.onclick = function () { salin(teksSalin(S.detail[bt.dataset.salin1]), 'Kartu disalin.'); };
+  });
+  $$('#list-batch [data-selesai-retur]').forEach(function (bt) {
+    bt.onclick = function (e) { e.stopPropagation(); var d = S.detail && S.detail[bt.dataset.selesaiRetur]; if (d) selesaiRetur(d); };
   });
   var sd = $('#salin-dicek');
   if (sd) sd.onclick = function () {
@@ -1592,13 +1674,13 @@ function renderKartu(l, kosongTeks) {
     var kurang = siap.filter(function (b) { return (S.detail[b.id].items || []).some(function (it) { return !it.retur && !(it.modal > 0); }); });
     var lengkap = siap.filter(function (b) { return kurang.indexOf(b) < 0; });
     bukaDialog('<header><b>Sudah disalin ✓</b></header><div class="isi"><p>' + siap.length + ' penerimaan sudah disalin. Tempel ke catatan/WA untuk admin barcode.</p>' +
-      (kurang.length ? '<p class="small" style="color:var(--kuning-tua)">⚠ ' + kurang.length + ' penerimaan masih ada <b>modal?</b> (' + kurang.map(function (b) { return esc(b.pemasok); }).join(', ') + '). Isi dulu modalnya — yang ini tidak ikut dipindah ke Beres.</p>' : '') +
-      (lengkap.length ? '<p class="muted small">Pindahkan ' + (kurang.length ? lengkap.length + ' yang lengkap ' : '') + 'ke tab <b>Beres</b> supaya daftar ini bersih? (belum dibuatkan barcode di aplikasi)</p>' : '') + '</div>' +
-      '<footer><button class="btn" data-tutup>' + (lengkap.length ? 'Nanti saja' : 'Tutup') + '</button>' + (lengkap.length ? '<button class="btn utama" id="pindah-beres">Pindahkan ke Beres</button>' : '') + '</footer>');
+      (kurang.length ? '<p class="small" style="color:var(--kuning-tua)">⚠ ' + kurang.length + ' penerimaan masih ada <b>modal?</b> (' + kurang.map(function (b) { return esc(b.pemasok); }).join(', ') + '). Isi dulu modalnya — yang ini tidak ikut dipindah ke Selesai.</p>' : '') +
+      (lengkap.length ? '<p class="muted small">Pindahkan ' + (kurang.length ? lengkap.length + ' yang lengkap ' : '') + 'ke tab <b>Selesai</b> supaya daftar ini bersih? (belum dibuatkan barcode di aplikasi)</p>' : '') + '</div>' +
+      '<footer><button class="btn" data-tutup>' + (lengkap.length ? 'Nanti saja' : 'Tutup') + '</button>' + (lengkap.length ? '<button class="btn utama" id="pindah-beres">Pindahkan ke Selesai</button>' : '') + '</footer>');
     if (lengkap.length) $('#pindah-beres').onclick = function () {
       tutupDialog(); siap = lengkap;
       siap.forEach(function (b) { var d = S.detail[b.id]; masukAntrean({ fn: 'checkBatch', ref: b.id, payload: { id: b.id, pemasok: d.pemasok, items: d.items, dihapusHani: d.dihapusHani || [] }, label: b.pemasok }); });
-      toast(siap.length + ' penerimaan dipindahkan ke Beres.');
+      toast(siap.length + ' penerimaan dipindahkan ke Selesai.');
     };
   };
 }
@@ -1627,14 +1709,14 @@ function renderRiwayatFikri(list, lokal) {
     (list.length ? list.map(function (b) {
     var d = (S.detail && S.detail[b.id]) || lok[b.id];
     if (aktif === b.id && S.batch) d = S.batch;
-    var isi = d ? (d.items || []).map(function (it) {
+    var isi = d ? urutkanItems((d.items || []).slice()).map(function (it) {
       return '<div class="kk-b' + (it.retur ? ' retur' : '') + ((it.asal || it.olehHani) ? ' dikoreksi' : '') + '">' + esc(it.nama) + ' <span class="kk-q">(' + it.qty + ')</span> ' +
         (it.retur ? '<span class="kk-r">' + esc(String(it.alasan || 'RETUR').toUpperCase()) + '</span>' : (it.modal > 0 ? '<span class="kk-m">' + angkaTitik(it.modal) + '</span>' : '<span class="kk-kosong">modal?</span>')) + '</div>';
     }).join('') || '<div class="muted small">belum ada barang</div>' : '<div class="muted small">memuat…</div>';
     var nK = d ? jumlahKoreksi(d) : 0;
     return '<div class="kk kk-f s-' + b.status + (aktif === b.id ? ' aktif' : '') + '" data-id="' + esc(b.id) + '"><div class="kk-judul">' + esc(b.pemasok || '(tanpa nama)') + '</div>' + isi +
       '<div class="kk-kaki"><span class="muted small grow">' + (b.status === 'DRAFT' ? '<span class="kk-diisi">✏ masih diisi</span> ' : '') + (nK ? '✎ ' + nK + ' dibetulkan Hani' : '') + '</span>' +
-      (b.status === 'DISETUJUI' ? '<span class="beres-tag">✓ beres</span>' : '') + '</div></div>';
+      (b.status === 'DISETUJUI' ? '<span class="beres-tag">✓ selesai</span>' : '') + '</div></div>';
   }).join('') : '<div class="kosong small">Belum ada yang ditulis.</div>');
   $$('.kk-f', el).forEach(function (k) {
     k.onclick = function () { S.riwayatBuka = false; pilihBatch(k.dataset.id); window.scrollTo({ top: 0, behavior: 'smooth' }); };
@@ -1661,7 +1743,7 @@ function tutupEditorHani() {
 function tambahHari(ymd, n) { var d = new Date(ymd + 'T00:00:00Z'); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); }
 /** alur ala Keep: Fikri & Hani sama-sama boleh mengubah sampai Hani klik Beres */
 function bolehUbah(status) { return status === 'DRAFT' || status === 'MENUNGGU'; }
-function label(s) { return { DRAFT: 'Masih diisi', MENUNGGU: 'Belum dicek', DISETUJUI: 'Beres' }[s] || s; }
+function label(s) { return { DRAFT: 'Masih diisi', MENUNGGU: 'Belum dicek', DISETUJUI: 'Selesai' }[s] || s; }
 /** berapa baris yang dibetulkan / ditambah / dihapus Hani */
 function jumlahKoreksi(b) {
   if (!b || !b.items) return 0;
@@ -1754,7 +1836,7 @@ function renderEditor() {
   }
   if (b.status === 'DRAFT' && b.catatanHani) html += '<div class="catatan-hani" style="margin-top:12px"><b>Catatan dari Hani:</b> ' + esc(b.catatanHani) + '</div>';
   if (b.status === 'DRAFT' && owner() && b.dibuatOleh) html += '<div class="info kuning" style="background:var(--hijau-muda);color:var(--abu)">' + esc(b.dibuatOleh) + ' masih mengisi penerimaan ini (belum klik Selesai).</div>';
-  if (b.status === 'DISETUJUI') html += '<div class="info hijau">' + (owner() ? 'Beres ' + esc(b.tanggalDisetujui) + (b.tanpaBarcode ? '.' : ' — barcode ada di tab <b>Barcode &amp; Cetak</b>.') : '✓ Sudah dicek Hani ' + esc(b.tanggalDisetujui) + '. Ini riwayat, tidak bisa diubah lagi.') + '</div>';
+  if (b.status === 'DISETUJUI') html += '<div class="info hijau">' + (owner() ? 'Selesai ' + esc(b.tanggalDisetujui) + (b.tanpaBarcode ? '.' : ' — barcode ada di tab <b>Barcode &amp; Cetak</b>.') : '✓ Sudah dicek Hani ' + esc(b.tanggalDisetujui) + '. Ini riwayat, tidak bisa diubah lagi.') + '</div>';
   var nKor = jumlahKoreksi(b);
   if (nKor && !owner()) html += '<div class="info" style="background:#f6eee6;color:#8a5a3b">✎ ' + nKor + ' baris dibetulkan Hani — lihat tanda di bawah nama barang.</div>';
   html += '</div>';
@@ -1782,7 +1864,8 @@ function renderEditor() {
   html += '<b class="grand" id="tot"></b>';
   if ((b.status === 'DRAFT' || b.status === 'MENUNGGU') && !owner()) html += '<button class="btn utama" id="act-kirim">Selesai ✓</button>';
   // sementara barcode masih manual: Hani cukup menandai sudah dicek, lalu salin dari kartu
-  if ((b.status === 'MENUNGGU' || b.status === 'DRAFT') && owner()) html += '<button class="btn utama" id="act-dicek">' + (dicek()[b.id] ? '✓ Sudah dicek — kembali' : '✓ Sudah dicek') + '</button>';
+  if ((b.status === 'MENUNGGU' || b.status === 'DRAFT') && owner() && jualRetur(b.pemasok)) html += '<button class="btn utama" id="act-selesai-retur" title="Retur penjualan — tidak dibuatkan barcode">✓ Langsung selesai</button>';
+  else if ((b.status === 'MENUNGGU' || b.status === 'DRAFT') && owner()) html += '<button class="btn utama" id="act-dicek">' + (dicek()[b.id] ? '✓ Sudah dicek — kembali' : '✓ Sudah dicek') + '</button>';
   if (b.status === 'DISETUJUI' && owner()) html += '<button class="btn utama" id="act-lihat">Lihat &amp; cetak</button>';
   html += '</div></div>';
   $('#editor').innerHTML = html;
@@ -1805,6 +1888,7 @@ function isiRingkas(b, ubah) {
   var p = b.pemasok, mp = p.jenis !== 'DIRECT', ket = [];
   // Hani: bilah ala catatan Keep — cukup ← kembali, lalu ✎ ⋯ di kanan (judul ada di dalam catatan)
   if (owner()) return '<button class="ik tampil kp-kembali" data-tutup-lihat title="Kembali ke kartu">←</button><span class="grow"></span>' +
+    (b.items && b.items.length ? '<button class="ik tampil" id="pm-salin" title="Salin daftar barang (untuk dikirim ke supplier)">' + IKON_SALIN + '</button>' : '') +
     (ubah ? '<span class="simpan-info" id="simpan-info">' + esc(S.infoSimpan || '') + '</span><button class="ik tampil" id="pm-ubah" title="Ubah pemasok">' + IKON_PENA + '</button>' : '') + menuTitik(b, ubah);
   if (mp && p.pihak) ket.push(jenisPihak(p.pihak) === 'akun' ? 'akun pembeli kita' : 'toko');
   if (!ubah && b.dibuatOleh) ket.push('diinput ' + b.dibuatOleh);
@@ -2005,6 +2089,7 @@ function hapusDraft() {
 }
 function pasangUbah() {
   var u = $('#pm-ubah'); if (u) u.onclick = function () { lipatPemasok(false); $('#p-id').focus(); };
+  var sl = $('#pm-salin'); if (sl) sl.onclick = function () { if (S.batch) salin(teksSupplier(S.batch), '✓ Daftar ' + S.batch.items.length + ' barang disalin'); };
   $$('#editor [data-hapus-pen]').forEach(function (x) { x.onclick = function () { tutupMenuTop(); hapusDraft(); }; });
   $$('#editor [data-simpan-draft]').forEach(function (x) { x.onclick = function () { tutupMenuTop(); simpanDraftLaluBaru(); }; });
   $$('#editor [data-titik]').forEach(function (x) {
@@ -2377,10 +2462,12 @@ function tambahItem(retur, alasan) {
   else items.push(it);
   urutkanItems(items);
   S.sorot = kembar || it;          // baris yang baru masuk disorot sebentar supaya kelihatan pindah ke mana
-  var sisaKat = e.kategori;
+  var sisaKat = e.kategori, tadiUbah = S.editIndex >= 0;
+  if (owner() && !retur) tandaBaris(S.batch, it.nama, true);        // yang barusan dibetulkan / ditambah Hani = sudah dicek
   S.edit = entryKosong(); S.editIndex = -1;
   isiEntry(); renderItems(); tandaiUbah();
-  $('#in-nama').focus();
+  if (owner() && tadiUbah) { if (document.activeElement && document.activeElement.blur) document.activeElement.blur(); }   // Hani: form menutup, baris tadi tetap di depan mata
+  else $('#in-nama').focus();
   if (!S.pmRingkas) lipatPemasok(true, true);     // pemasok dirapikan jadi satu baris setelah barang pertama masuk, pelan-pelan
   void sisaKat;
 }
@@ -2425,15 +2512,35 @@ function bukaTambahHani(fokus) {
   }) || 1;
   if (fokus !== false) setTimeout(function () { $('#in-nama').focus(); if (bt.scrollIntoView) bt.scrollIntoView({ block: 'nearest' }); }, 20);
 }
+/* centang per baris (Hani mengecek satu per satu) — disimpan di browser ini, per penerimaan, per nama barang */
+var KUNCI_CEKBRS = 'qc_cekbrs_v1';
+function cekBaris(b) { var m = LS.get(KUNCI_CEKBRS) || {}; return (b && m[b.id || b.lokalId]) || {}; }
+function tandaBaris(b, nama, on) {
+  var m = LS.get(KUNCI_CEKBRS) || {}, id = b.id || b.lokalId, o = (m[id] = m[id] || {});
+  if (on) o[nama] = Date.now(); else delete o[nama];
+  var batas = Date.now() - 45 * 864e5;                 // yang sudah lama dibuang supaya tidak menumpuk
+  Object.keys(m).forEach(function (k) { var t = Object.keys(m[k]).map(function (n) { return m[k][n]; }); if (!t.length || Math.max.apply(null, t) < batas) delete m[k]; });
+  LS.set(KUNCI_CEKBRS, m);
+}
 function renderKeep() {
   var el = $('#keep-list'); if (!el || !S.batch) return;
   var b = S.batch, ubah = bisaUbah(), items = b.items;
+  // form ubah ikut pindah ke bawah baris yang sedang diubah (ala Keep) — dikeluarkan dulu sebelum daftar digambar ulang
+  var btT = $('#baris-tambah'), fokusBt = btT && btT.contains(document.activeElement) ? document.activeElement : null;
+  if (btT && el.contains(btT)) { var wi = $('#wrap-items'); el.parentNode.insertBefore(btT, wi ? wi.nextSibling : el.nextSibling); }
   var h = '<div class="kp-judul">' + esc(rangkaiPemasok(b.pemasok) || '(tanpa nama)') + '</div>';
+  var cekB = cekBaris(b);
   var urut = items.map(function (it, i) { return i; }).sort(function (a, c) { return (items[a].retur ? 1 : 0) - (items[c].retur ? 1 : 0); });
   urut.forEach(function (i) {
     var it = items[i], aktif = ubah && S.keepAktif === i;
     var ekor = it.retur ? '<span class="kp-r">' + esc(String(it.alasan || 'RETUR').toUpperCase()) + '</span>' : (it.modal > 0 ? angkaTitik(it.modal) : '<span class="kk-kosong">modal?</span>');
-    if (!aktif) { h += '<div class="kp-brs' + (it.retur ? ' retur' : '') + (i === S.editIndex ? ' diubah' : '') + '" data-i="' + i + '">' + esc(it.nama) + ' <span class="kp-q">(' + it.qty + ')</span> ' + ekor + tandaKoreksi(it) + '</div>'; return; }
+    if (!aktif) {
+      var sdh = ubah && !!cekB[it.nama];
+      h += '<div class="kp-brs ada-cek' + (it.retur ? ' retur' : '') + (i === S.editIndex ? ' diubah' : '') + (it === S.sorot ? ' sorot' : '') + (sdh ? ' tercek' : '') + '" data-i="' + i + '">' +
+        '<div class="kp-isi">' + esc(it.nama) + ' <span class="kp-q">(' + it.qty + ')</span> ' + ekor + tandaKoreksi(it) + '</div>' +
+        (ubah ? '<button class="kp-cek" data-cek-i="' + i + '" title="' + (sdh ? 'Batal tanda' : 'Tandai baris ini sudah dicek') + '" aria-label="dicek">' + (sdh ? '✓' : '') + '</button>' : '') + '</div>';
+      return;
+    }
     h += '<div class="kp-brs aktif' + (it.retur ? ' retur' : '') + '" data-i="' + i + '"><div class="kp-nm" data-nama="' + i + '" title="Ganti nama barang">' + esc(it.nama) + ' <span class="kp-pena">✎</span></div>' +
       '<div class="kp-mini">qty <input class="kp-in kp-qty" inputmode="numeric" value="' + it.qty + '">' +
       (it.retur ? '' : ' modal <input class="kp-in kp-mod" inputmode="numeric" value="' + (it.modal > 0 ? angkaTitik(it.modal) : '') + '" placeholder="isi">') +
@@ -2441,9 +2548,34 @@ function renderKeep() {
   });
   (b.dihapusHani || []).forEach(function (x) { h += '<div class="kp-brs dihapus"><s>' + esc(x.nama) + ' (' + x.qty + ') ' + (x.modal ? angkaTitik(x.modal) : '') + '</s> <span class="koreksi-tag">dihapus</span></div>'; });
   if (!items.length) h += '<div class="muted small" style="padding:6px 0">Belum ada barang.</div>';
-  if (ubah) h += '<div class="kp-tambah" id="kp-tambah">+ Tambah barang</div>';
+  if (ubah) {
+    var nC = items.filter(function (x) { return cekB[x.nama]; }).length;
+    h += '<div class="kp-tambah-baris"><div class="kp-tambah" id="kp-tambah">+ Tambah barang</div>' +
+      (items.length ? '<span class="kp-hitung' + (nC === items.length ? ' semua' : '') + '">' + (nC === items.length ? '✓ semua baris dicek' : nC + ' / ' + items.length + ' dicek') + '</span>' : '') + '</div>';
+  }
   el.innerHTML = h;
+  el.classList.toggle('lagi-ubah', S.editIndex >= 0);
+  if (btT) {
+    var rowU = S.editIndex >= 0 ? $('.kp-brs.diubah', el) : null;
+    if (rowU) { rowU.insertAdjacentElement('afterend', btT); btT.classList.add('di-baris', 'buka'); }
+    else if (btT.classList.contains('di-baris')) { btT.classList.remove('di-baris'); if (!(S.edit && S.edit.dasar)) btT.classList.remove('buka'); }
+    if (fokusBt && document.activeElement !== fokusBt && document.contains(fokusBt)) { try { fokusBt.focus({ preventScroll: true }); } catch (e) {} }
+  }
+  // baris yang barusan disimpan: disorot sebentar & digulir ke tengah layar
+  var sr = $('.kp-brs.sorot', el);
+  if (sr) {
+    S.sorot = null;
+    setTimeout(function () { if (sr.scrollIntoView) sr.scrollIntoView({ block: 'center', behavior: 'smooth' }); }, 30);
+    setTimeout(function () { sr.classList.remove('sorot'); }, 2600);
+  }
   if (!ubah) return;
+  $$('.kp-cek', el).forEach(function (c) {
+    c.onclick = function (e) {
+      e.stopPropagation();
+      var it = S.batch.items[Number(c.dataset.cekI)]; if (!it) return;
+      tandaBaris(S.batch, it.nama, !cekBaris(S.batch)[it.nama]); renderKeep();
+    };
+  });
   $$('.kp-brs[data-i]:not(.aktif)', el).forEach(function (r) {
     r.onclick = function () { S.keepAktif = Number(r.dataset.i); renderKeep(); var m = $('.kp-mod', el) || $('.kp-qty', el); if (m) { m.focus(); m.select(); } };
   });
@@ -2479,7 +2611,7 @@ function renderKeep() {
 // ketuk di luar baris yang sedang diubah → tutup lagi
 document.addEventListener('mousedown', function (e) {
   if (!owner() || S.keepAktif < 0 || !e.target.closest) return;
-  if (e.target.closest('.kp-brs.aktif')) return;
+  if (e.target.closest('.kp-brs.aktif') || e.target.closest('.kp-cek')) return;
   var akt = $('.kp-brs.aktif');
   if (akt) { var i = Number(akt.dataset.i), q = $('.kp-qty', akt), m = $('.kp-mod', akt); if (q) ubahAngkaBaris(i, 'qty', angka(q.value)); if (m) ubahAngkaBaris(i, 'modal', angka(m.value) || 0); }
   var lain = e.target.closest('.kp-brs[data-i]'), tambah = e.target.closest('#kp-tambah');
@@ -2544,7 +2676,7 @@ function renderItems() {
   if ($('#baris-tambah')) $('#baris-tambah').classList.toggle('kosong-isi', !items.length);
   if ($('#kaki')) $('#kaki').hidden = kosongBaru;
   var bm = $('#tbl-items tr.baru-masuk');
-  if (bm) { S.sorot = null; if (bm.scrollIntoView) bm.scrollIntoView({ block: 'nearest' }); }
+  if (bm && !owner()) { S.sorot = null; if (bm.scrollIntoView) bm.scrollIntoView({ block: 'nearest' }); }
   segarKaki();
   if (owner()) renderKeep();
   // modal diisi langsung di tabel: Enter → simpan & lompat ke kotak kuning berikutnya
@@ -2663,21 +2795,61 @@ function bukaKondisi(tombol, semua) {
     return '<label' + (redup ? ' class="redup"' : '') + '><input type="checkbox" value="' + esc(k) + '"' + (S.edit.kondisi.indexOf(k) >= 0 ? ' checked' : '') + '> ' + esc(k) +
       (jmlBrg[k] ? ' <span class="jml-k">' + jmlBrg[k] + '×</span>' : '') + '</label>';
   };
-  pop.innerHTML = '<div class="row" style="margin-bottom:8px"><b class="grow">Kondisi</b><span class="muted small">urutan sesuai riwayat barang ini</span></div>' +
-    (atas.length ? '<div class="grid dua">' + atas.map(function (k) { return kotak(k, false); }).join('') + '</div>'
+  var bagianNormal = (atas.length ? '<div class="grid dua">' + atas.map(function (k) { return kotak(k, false); }).join('') + '</div>'
                  : '<div class="muted small" style="padding:2px 0 6px">Barang ini belum pernah masuk dengan kondisi apa pun.</div>') +
-    (bawah.length ? '<div class="pisah-k">' + (atas.length ? 'Belum pernah untuk barang ini' : 'Biasa di ' + esc(labelKategori(S.edit.kategori))) + '</div><div class="grid dua">' + bawah.map(function (k) { return kotak(k, atas.length > 0); }).join('') + '</div>' : '') +
+    (bawah.length ? '<div class="pisah-k">' + (atas.length ? 'Belum pernah untuk barang ini' : 'Biasa di ' + esc(labelKategori(S.edit.kategori))) + '</div><div class="grid dua">' + bawah.map(function (k) { return kotak(k, atas.length > 0); }).join('') + '</div>' : '');
+  pop.innerHTML = '<div class="row" style="margin-bottom:8px"><b class="grow">Kondisi</b><span class="muted small">urutan sesuai riwayat barang ini</span></div>' +
+    '<input class="f kon-cari" id="kon-cari" autocomplete="off" placeholder="Cari atau tulis kondisi…">' +
+    '<div id="kon-hasil" hidden></div><div id="kon-normal">' + bagianNormal + '</div>' +
     '<div class="row" style="margin-top:10px">' +
     (lain > 0 || semua ? '<a href="#" class="small grow" id="kon-semua" style="color:var(--hijau)">' + (semua ? 'Sembunyikan yang jarang' : 'Tampilkan semua kondisi (+' + lain + ')') + '</a>' : '<span class="grow"></span>') +
     '<button class="btn kecil" id="kon-hapus">Kosongkan</button><button class="btn kecil utama" id="kon-ok">OK</button></div>';
   posisikan(pop, tombol);
+  setTimeout(function () { if (pop.scrollIntoView) pop.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }, 30);
   var ks = $('#kon-semua'); if (ks) ks.onclick = function (e) { e.preventDefault(); e.stopPropagation(); bukaKondisi(tombol, !semua); };
-  var terap = function () {
-    S.edit.kondisi = $$('input:checked', pop).map(function (c) { return c.value; });
-    aturHealth(); segarPilihan(); segarPratinjau();
+  var segar = function () { aturHealth(); segarPilihan(); segarPratinjau(); };
+  // centang / lepas satu kondisi (kotak yang sama bisa muncul di hasil cari & di daftar biasa)
+  var ganti = function (v, on) {
+    var i = S.edit.kondisi.indexOf(v);
+    if (on && i < 0) S.edit.kondisi.push(v);
+    if (!on && i >= 0) S.edit.kondisi.splice(i, 1);
+    $$('input[type=checkbox]', pop).forEach(function (c) { if (c.value === v) c.checked = on; });
+    segar();
   };
-  $$('input', pop).forEach(function (c) { c.onchange = terap; });
-  $('#kon-hapus').onclick = function () { $$('input', pop).forEach(function (c) { c.checked = false; }); terap(); };
+  var pasangCentang = function (wadah) { $$('input[type=checkbox]', wadah).forEach(function (c) { c.onchange = function () { ganti(c.value, c.checked); }; }); };
+  pasangCentang(pop);
+  // kotak atas: ketik untuk menyaring daftar; kalau tidak ada yang sama persis → "+ Pakai '…'" jadi kondisi tulisan sendiri
+  var cari = $('#kon-cari'), hasil = $('#kon-hasil'), normal = $('#kon-normal');
+  var rapi = function (t) { return String(t || '').replace(/[()]/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60); };
+  var pakai = function (t) {
+    t = rapi(t); if (!t) return;
+    var baku = semuaK.filter(function (k) { return k.toLowerCase() === t.toLowerCase(); })[0];
+    var v = baku || t;
+    if (S.edit.kondisi.indexOf(v) < 0) S.edit.kondisi.push(v);
+    segar(); bukaKondisi(tombol, semua);
+    setTimeout(function () { var c = $('#kon-cari'); if (c) c.focus(); }, 0);
+  };
+  var saringCari = function () {
+    var q = rapi(cari.value).toLowerCase();
+    if (!q) { hasil.hidden = true; normal.hidden = false; return; }
+    var kata = q.split(' ');
+    var calon = semuaK.concat(S.edit.kondisi.filter(function (k) { return semuaK.indexOf(k) < 0; }));
+    var cocok = calon.filter(function (k) { var l = k.toLowerCase(); return kata.every(function (w) { return l.indexOf(w) >= 0; }); });
+    var persis = calon.some(function (k) { return k.toLowerCase() === q; });
+    hasil.innerHTML = (persis ? '' : '<a href="#" class="kon-pakai" id="kon-pakai">+ Pakai "' + esc(rapi(cari.value)) + '"</a>') +
+      (cocok.length ? '<div class="pisah-k" style="border-top:0;padding-top:0">Yang mirip</div><div class="grid dua">' + cocok.slice(0, 12).map(function (k) { return kotak(k, false); }).join('') + '</div>' : '');
+    hasil.hidden = false; normal.hidden = true;
+    pasangCentang(hasil);
+    var pk = $('#kon-pakai'); if (pk) pk.onclick = function (e) { e.preventDefault(); e.stopPropagation(); pakai(cari.value); };
+  };
+  cari.oninput = saringCari;
+  cari.onkeydown = function (e) {
+    if (e.key !== 'Enter') return;
+    e.preventDefault();
+    if (!rapi(cari.value)) { $('#kon-ok').click(); return; }
+    pakai(cari.value);
+  };
+  $('#kon-hapus').onclick = function () { S.edit.kondisi = []; $$('input[type=checkbox]', pop).forEach(function (c) { c.checked = false; }); segar(); };
   $('#kon-ok').onclick = function () { pop.classList.remove('on'); segarTautan(); $('#in-qty').focus(); };
 }
 function bukaGaransi(tombol) {
@@ -2802,15 +2974,15 @@ function pasangAksi() {
     var b = S.batch, trm = b.items.filter(function (x) { return !x.retur; }), rt = b.items.filter(function (x) { return x.retur; });
     var qty = trm.reduce(function (s, x) { return s + x.qty; }, 0);
     if (b.items.some(function (x) { return !x.retur && !(x.modal > 0); })) { toast('Masih ada modal yang kosong (kotak kuning).', true); var imk = $('#tbl-items input.im.kosong'); if (imk) imk.focus(); return; }
-    bukaDialog('<header><b>Beres &amp; buat barcode</b></header><div class="isi"><p>' + trm.length + ' kode barcode akan dibuat untuk <b>' + esc(rangkaiPemasok(b.pemasok)) + '</b> (' + qty + ' stiker).</p>' +
-      (rt.length ? '<p class="small" style="color:var(--merah)">↩ ' + rt.reduce(function (s, x) { return s + x.qty; }, 0) + ' unit dikembalikan ke supplier — tidak dibuatkan barcode.</p>' : '') + '<p class="muted small">Setelah beres, daftar ini tidak bisa diubah lagi di aplikasi. Koreksi modal selanjutnya dilakukan di TNB → Barang Masuk.</p></div><footer><button class="btn" data-tutup>Batal</button><button class="btn utama" id="setuju-ok">Beres ✓</button></footer>');
+    bukaDialog('<header><b>Selesai &amp; buat barcode</b></header><div class="isi"><p>' + trm.length + ' kode barcode akan dibuat untuk <b>' + esc(rangkaiPemasok(b.pemasok)) + '</b> (' + qty + ' stiker).</p>' +
+      (rt.length ? '<p class="small" style="color:var(--merah)">↩ ' + rt.reduce(function (s, x) { return s + x.qty; }, 0) + ' unit dikembalikan ke supplier — tidak dibuatkan barcode.</p>' : '') + '<p class="muted small">Setelah selesai, daftar ini tidak bisa diubah lagi di aplikasi. Koreksi modal selanjutnya dilakukan di TNB → Barang Masuk.</p></div><footer><button class="btn" data-tutup>Batal</button><button class="btn utama" id="setuju-ok">Selesai ✓</button></footer>');
     $('#setuju-ok').onclick = function () {
       tutupDialog(); clearTimeout(S.simpanTimer);
       var lama = S.batch;
       var jl = jobUntuk(lama.id); if (jl && !jl.gagal && jl.fn !== 'saveBatch') { toast('Masih ada pengiriman untuk penerimaan ini, tunggu sebentar lalu coba lagi.', true); return; }
       if (!LS.ok) {
         api('approveBatch', payload()).then(function (b2) {
-          hapusLokal(lama); simpanDetail(b2); toast('✓ Beres. ' + b2.items.length + ' barcode dibuat.');
+          hapusLokal(lama); simpanDetail(b2); toast('✓ Selesai. ' + b2.items.length + ' barcode dibuat.');
           muatBatches(false); editorKosong();
         }).catch(gagal);
         return;
@@ -2819,11 +2991,16 @@ function pasangAksi() {
       simpanLokal();
       simpanAntrean(antrean().filter(function (j) { return !(j.fn === 'saveBatch' && !j.gagal && j.jid !== S.jobJalan && j.ref === lama.id); }));
       masukAntrean({ fn: 'approveBatch', ref: lama.id, payload: payload(), label: rangkaiPemasok(lama.pemasok) });
-      editorKosong('Beres — barcode sedang dibuat di latar belakang. Hasilnya ada di tab Barcode & Cetak.');
+      editorKosong('Selesai — barcode sedang dibuat di latar belakang. Hasilnya ada di tab Barcode & Cetak.');
       renderDaftar(); updateBadge();
     };
   });
   on('act-lihat', function () { S.cetakBatch = S.batch.id; buka('cetak'); });
+  on('act-selesai-retur', function () {
+    if (!simpanIsianTerbuka()) return;
+    var b = S.batch; if (!b.id) { toast('Belum tersimpan.', true); return; }
+    selesaiRetur(b, true);
+  });
   on('act-dicek', function () {
     if (!simpanIsianTerbuka()) return;
     var b = S.batch; if (!b.id) { toast('Belum tersimpan.', true); return; }

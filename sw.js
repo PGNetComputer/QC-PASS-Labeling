@@ -1,6 +1,6 @@
 /* QC PASS Labeling — service worker: menyimpan TAMPILAN di HP supaya langsung terbuka.
    Panggilan ke Apps Script (JSONP, ada "callback=") tidak pernah disimpan. */
-var CACHE = 'qcpass-5214b177';
+var CACHE = 'qcpass-d4ef2d3a';
 var ASET = ['./', 'index.html', 'config.js', 'manifest.json', 'ikon-192.png', 'ikon-512.png'];
 self.addEventListener('install', function (e) {
   e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(ASET); }).then(function () { return self.skipWaiting(); }));
